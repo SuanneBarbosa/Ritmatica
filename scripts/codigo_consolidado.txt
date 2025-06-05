@@ -1,0 +1,1487 @@
+[main.dart]
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import './services/ritmo_provider.dart';
+import './user_interface/screens/tela_principal.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Forçar modo paisagem
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+  // Esconder a barra de status para uma experiência mais imersiva
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+  runApp(const MeuApp());
+}
+
+class MeuApp extends StatelessWidget {
+  const MeuApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (context) => RitmoProvider(),
+      child: MaterialApp(
+        title: 'Ritmatica',
+        theme: ThemeData(
+          primarySwatch: Colors.cyan,
+          brightness: Brightness.light, // Ou light, baseado no vídeo
+          scaffoldBackgroundColor: const Color(0xFF54ADFF), // Cor de fundo do vídeo
+        ),
+        home: const TelaPrincipal(),
+        debugShowCheckedModeBanner: false,
+      ),
+    );
+  }
+}
+----------------
+[models\conjunto_ritmo_model.dart]
+
+import './fracao_model.dart';
+
+class ConjuntoRitmoModel {
+  String nome; // Nome definido pelo usuário para o conjunto
+  List<FracaoModel> fracoes; // Lista de 3 instâncias de FracaoModel
+
+  ConjuntoRitmoModel({required this.nome, required this.fracoes});
+
+  Map<String, dynamic> toJson() => {
+    'nome': nome,
+    'fracoes': fracoes.map((f) => f.toJson()).toList(),
+  };
+
+  factory ConjuntoRitmoModel.fromJson(Map<String, dynamic> json) => ConjuntoRitmoModel(
+    nome: json['nome'],
+    fracoes: (json['fracoes'] as List)
+        .map((item) => FracaoModel.fromJson(item as Map<String, dynamic>))
+        .toList(),
+  );
+}
+----------------
+[models\fracao_model.dart]
+
+// models/fracao_model.dart
+
+import 'package:flutter/material.dart';
+// import 'package:collection/collection.dart'; // Não mais necessário para ListEquality em padraoBatida
+// import 'dart:math'; // Não mais necessário para gerarPadraoBatida
+
+class FracaoModel {
+  String id;
+  int? numerador;
+  int? denominador;
+  Color cor;
+  String assetSom;
+  bool estaTocando; // Se esta faixa está ATIVA para tocar (não se está selecionada na UI)
+  bool estaSelecionada; // Se está selecionada na UI para ser incluída na reprodução
+  // int get subdivisoesPorUnidade => denominador ?? 1; // Não mais usado dessa forma
+
+
+  FracaoModel({
+    required this.id,
+    this.numerador,
+    this.denominador,
+    required this.cor,
+    required this.assetSom,
+    this.estaTocando = false,
+    this.estaSelecionada = false,
+  });
+
+  String get valorExibicao {
+    if (numerador != null && denominador != null) {
+      return "$numerador:$denominador";
+    }
+    return "";
+  }
+
+  // REMOVIDO: gerarPadraoBatida
+  // REMOVIDO: pontoFinalDaPrimeiraOcorrenciaDoPadrao
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'numerador': numerador,
+    'denominador': denominador,
+    'cor': cor.value,
+    'assetSom': assetSom,
+    // Não salvamos estaTocando ou estaSelecionada
+  };
+
+  factory FracaoModel.fromJson(Map<String, dynamic> json) => FracaoModel(
+    id: json['id'],
+    numerador: json['numerador'],
+    denominador: json['denominador'],
+    cor: Color(json['cor']),
+    assetSom: json['assetSom'],
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FracaoModel &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          numerador == other.numerador &&
+          denominador == other.denominador &&
+          cor == other.cor &&
+          estaTocando == other.estaTocando && // Comparar se necessário, mas geralmente não para identidade
+          estaSelecionada == other.estaSelecionada;
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      numerador.hashCode ^
+      denominador.hashCode ^
+      cor.hashCode ^
+      estaTocando.hashCode ^
+      estaSelecionada.hashCode;
+}
+----------------
+[services\ritmo_provider.dart]
+
+// services/ritmo_provider.dart
+
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
+import '../models/fracao_model.dart';
+import '../models/conjunto_ritmo_model.dart';
+import '../utils/cores.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class RitmoProvider with ChangeNotifier {
+  late List<FracaoModel> _fracoes;
+  List<ConjuntoRitmoModel> _conjuntosSalvos = [];
+  
+  // _subdivisoesPorColunaVisual: Quantos "ticks" lógicos uma coluna visual possui.
+  // Controlado pelo slider "Largura da Coluna" no SideMenu.
+  int _subdivisoesPorColunaVisual = 20; // Valor inicial (ex: permite 1/2, 1/3, 1/4, 1/6, 1/8, 1/12)
+                                        // O slider do side menu atualiza este valor.
+
+  late AudioPlayer _playerB1;
+  late AudioPlayer _playerB2;
+  late AudioPlayer _playerB3;
+  Map<String, AudioPlayer> _players = {};
+
+  Timer? _timerReproducao;
+  int _batidaAtual = -1; // Representa o tick atual (0 a _subdivisoesPorColunaVisual - 1)
+  double _tempoBPM = 120.0;
+
+  // REMOVIDO: COMPRIMENTO_PADRAO_VISUALIZADOR_SUBDIVISOES
+  // REMOVIDO: _totalSubdivisoesNecessarias (o pintor não usará mais da mesma forma)
+
+  double _offsetHorizontalScroll = 0.0; // Em unidades de "tick"
+
+  // Getters
+  List<FracaoModel> get fracoes => _fracoes;
+  List<ConjuntoRitmoModel> get conjuntosSalvos => _conjuntosSalvos;
+  int get batidaAtual => _batidaAtual;
+  // int get totalSubdivisoesNecessarias => _subdivisoesPorColunaVisual; // Se algo ainda precisar de um "ciclo"
+  double get offsetHorizontalScroll => _offsetHorizontalScroll;
+  double get tempoBPM => _tempoBPM;
+  bool get estaTocandoGlobalmente => _timerReproducao != null && _timerReproducao!.isActive;
+  int get subdivisoesPorColunaVisual => _subdivisoesPorColunaVisual;
+
+  int get totalTicksGlobais => 20 * _subdivisoesPorColunaVisual; // 20 colunas visíveis
+int get indiceColunaAtual => _batidaAtual ~/ _subdivisoesPorColunaVisual;
+int get tickDentroDaColunaAtual => _batidaAtual % _subdivisoesPorColunaVisual;
+
+
+
+final Map<String, int> _bolinhasMostradas = {};
+Map<String, int> get bolinhasMostradas => _bolinhasMostradas;
+  
+
+  RitmoProvider() {
+    _fracoes = [
+      FracaoModel(id: 'b1', cor: AppCores.corB1, assetSom: 'sounds/b1_som.mp3'),
+      FracaoModel(id: 'b2', cor: AppCores.corB2, assetSom: 'sounds/b2_som.mp3'),
+      FracaoModel(id: 'b3', cor: AppCores.corB3, assetSom: 'sounds/b3_som.mp3'),
+    ];
+
+    _playerB1 = AudioPlayer();
+    _playerB2 = AudioPlayer();
+    _playerB3 = AudioPlayer();
+    _players = {'b1': _playerB1, 'b2': _playerB2, 'b3': _playerB3};
+
+    _players.forEach((id, player) async {
+      final fraction = _fracoes.firstWhere((f) => f.id == id);
+      try {
+        await player.setAsset('assets/${fraction.assetSom}');
+      } catch (e) {
+        print("Erro ao carregar asset para $id: $e");
+      }
+    });
+
+    carregarConjuntosSalvos().then((_) {
+      _notificarMudancasVisuais();
+    });
+  }
+
+  void _notificarMudancasVisuais() {
+    // Esta função é chamada quando algo que afeta a visualização (não os padrões de batida) muda.
+    // Ex: mudança de fração, largura da coluna.
+    // O cálculo do `padrãoBatida` foi removido do FracaoModel.
+    notifyListeners();
+    print("RitmoProvider: Mudanças visuais notificadas. subdivisoesPorColunaVisual: $_subdivisoesPorColunaVisual");
+  }
+
+
+  void atualizarValorFracao(String id, String valorInputUsuario) {
+    final fracao = _fracoes.firstWhere((f) => f.id == id);
+    final partes = valorInputUsuario.split(':');
+    if (valorInputUsuario.isEmpty) {
+      fracao.numerador = null;
+      fracao.denominador = null;
+    } else if (partes.length == 2) {
+      final numTemp = int.tryParse(partes[0]);
+      final denTemp = int.tryParse(partes[1]);
+      if (numTemp != null && denTemp != null && denTemp > 0 && numTemp > 0) {
+        // Adicionar uma verificação para numerador <= denominador se fizer sentido para o seu app
+        // if (numTemp <= denTemp) {
+        fracao.numerador = numTemp;
+        fracao.denominador = denTemp;
+        // } else {
+        //   fracao.numerador = null;
+        //   fracao.denominador = null;
+        // }
+      } else {
+        fracao.numerador = null;
+        fracao.denominador = null;
+      }
+    } else {
+      fracao.numerador = null;
+      fracao.denominador = null;
+    }
+
+    _notificarMudancasVisuais();
+
+    if (fracao.estaTocando && (fracao.numerador == null || fracao.denominador == null)) {
+        fracao.estaTocando = false;
+        if (estaTocandoGlobalmente && !_fracoes.any((f) => f.estaTocando)) {
+            pararReproducao();
+        }
+    }
+  }
+  
+  void atualizarLarguraColuna(int novaLargura) {
+    _subdivisoesPorColunaVisual = novaLargura.clamp(20, 200); // Mínimo de 1 tick por coluna
+    _notificarMudancasVisuais();
+    if (estaTocandoGlobalmente) { // Reinicia a reprodução para aplicar nova duração de tick
+        pararReproducao();
+        iniciarOuPausarReproducaoGlobal();
+    }
+  }
+
+  void excluirValorFracao(String id) {
+    atualizarValorFracao(id, "");
+  }
+
+  void toggleSelecaoFaixa(String idFaixa) {
+    final fracao = _fracoes.firstWhere((f) => f.id == idFaixa);
+    fracao.estaSelecionada = !fracao.estaSelecionada;
+
+    if (estaTocandoGlobalmente) {
+      if (fracao.estaSelecionada && fracao.numerador != null && fracao.denominador != null) {
+        fracao.estaTocando = true;
+      } else {
+        fracao.estaTocando = false;
+      }
+      if (!_fracoes.any((f) => f.estaTocando)) {
+        pararReproducao();
+      }
+    }
+    notifyListeners();
+  }
+
+
+
+
+ void iniciarOuPausarReproducaoGlobal() {
+    if (estaTocandoGlobalmente) {
+      pararReproducao();
+      return;
+    }
+
+    bool algumaSelecionadaValida = false;
+    for (var f in _fracoes) {
+      f.estaTocando = f.estaSelecionada && f.numerador != null && f.denominador != null && f.denominador! > 0;
+      if (f.estaTocando) algumaSelecionadaValida = true;
+    }
+
+    if (!algumaSelecionadaValida) {
+      // Se nada válido está selecionado para tocar, apenas notifica e retorna.
+      // Isso pode acontecer se o usuário desmarcar tudo ou limpar os valores.
+      // Se já estava tocando, o pararReproducao() acima já lidou com isso.
+      // Se não estava tocando, não há nada a iniciar.
+      notifyListeners(); // Para atualizar o estado do botão play/stop se necessário
+      return;
+    }
+
+    // **ZERAR O CONTADOR DE BOLINHAS PARA CADA FRAÇÃO** antes de iniciar
+    _bolinhasMostradas.clear();
+    for (var f in _fracoes.where((f) => f.estaTocando)) {
+      _bolinhasMostradas[f.id] = 0;
+    }
+    _batidaAtual = -1; /////mudei aqui
+    _timerReproducao?.cancel();
+
+    final msPorTick = ((60.0 / _tempoBPM) / _subdivisoesPorColunaVisual) * 1000;
+    if (msPorTick <= 0) return; // Evita erro se _subdivisoesPorColunaVisual for 0 ou BPM muito alto
+
+    _timerReproducao = Timer.periodic(
+      
+      Duration(milliseconds: msPorTick.round()),
+      (timer) {
+        // Verifica se ainda há algo para tocar, senão para o timer.
+        // Isso é uma segurança caso as frações se tornem inválidas durante a reprodução.
+        bool aindaTemOQueTocar = false;
+        for (var f in _fracoes) {
+          if (f.estaTocando && f.numerador != null && f.denominador != null && f.denominador! > 0) {
+            aindaTemOQueTocar = true;
+            break;
+          }
+        }
+        if (!aindaTemOQueTocar) {
+          pararReproducao(); // Para tudo e reseta
+          return;
+        }
+
+        // 1. Avança o estado do tempo/scanner para o PRÓXIMO tick
+        final totalColunasVisuais = 20; // Conforme usado para o ciclo do _batidaAtual
+        final totalTicksGlobaisNoCicloVisual = totalColunasVisuais * _subdivisoesPorColunaVisual;
+        _batidaAtual = (_batidaAtual + 1) % totalTicksGlobaisNoCicloVisual;
+
+        // 2. Calcula a posição do scanner dentro da coluna visual ATUAL
+        final int tickDentroDaColunaAtual = _batidaAtual % _subdivisoesPorColunaVisual;
+
+         // 4. Para cada fração ativa, verifica se deve disparar um evento (tocar som + "aparecer bolinha")
+    bool notificar = false; // se alguma bolinha foi incrementada, então notificamos
+    for (var f in _fracoes.where((f) => f.estaTocando)) {
+      final N = f.numerador!;
+      final D = f.denominador!;
+
+          // Para cada um dos N eventos (k de 0 a N-1)
+          for (int k = 0; k < N; k++) {
+            // Calcula em qual tick DENTRO DE UMA COLUNA VISUAL este evento k deve soar.
+            // Esta é a fórmula que você estava usando, interpretada como:
+            // N eventos, onde o k-ésimo evento ocorre no início da k-ésima
+            // "fatia" de tamanho (1/D) da duração da coluna.
+            final tickEvento = ((k * _subdivisoesPorColunaVisual) / D).floor();
+
+            if (tickDentroDaColunaAtual == tickEvento) {
+              final player = _players[f.id];
+              ////Toca a musica
+              if (player != null) {
+                player.seek(Duration.zero);
+                player.play().catchError((e) {
+                  // Adicionar tratamento de erro se o play falhar
+                  print("Erro ao tocar som para ${f.id}: $e");
+                });
+                // print("Som: ${f.id} (Evento $k) @ _batidaAtual: $_batidaAtual (tickNaColuna: $tickDentroDaColunaAtual == tickEvento: $tickEvento)");
+              }
+          // **Incrementa o contador de bolinhas dessa fração** 
+          // (garantindo que a chave exista; se por algum motivo não existir, inicializa em zero)
+          _bolinhasMostradas[f.id] = (_bolinhasMostradas[f.id] ?? 0) + 1;
+          notificar = true;
+
+
+            }
+          }
+        }
+
+        // 4. Notifica a UI para redesenhar com o _batidaAtual NOVO (que agora é o atual)
+        if (notificar) {
+      notifyListeners();
+    }
+      },
+    );
+
+    // Notifica para atualizar o ícone de play/stop e estado inicial
+    notifyListeners();
+  }
+
+ void pararReproducao() {
+  _timerReproducao?.cancel();
+  _timerReproducao = null;
+  for (var fracao in _fracoes) {
+    fracao.estaTocando = false;
+  }
+  // _batidaAtual = 0; 
+   _batidaAtual = -1; /////mudei aqui
+  _players.values.forEach((player) => player.stop());
+
+  // **ZERAR CONTADOR DE BOLINHAS** (opcional, se você quiser que a tela volte imediatamente ao estado sem nenhuma bolinha)
+  _bolinhasMostradas.clear();
+
+  notifyListeners();
+}
+
+  Future<void> salvarConjuntoAtual(String nome) async {
+    // ... (código existente)
+    // A criação de FracaoModel para salvar não precisa mais de padraoBatida
+    if (nome.isEmpty) return;
+    bool temValores = _fracoes.any((f) => f.numerador != null && f.denominador != null);
+    if (!temValores) return;
+
+    final novoConjunto = ConjuntoRitmoModel(
+        nome: nome,
+        fracoes: _fracoes.map((f) => FracaoModel( // Salva o estado essencial
+            id: f.id,
+            numerador: f.numerador,
+            denominador: f.denominador,
+            cor: f.cor,
+            assetSom: f.assetSom
+            // não salva estaTocando, estaSelecionada
+            )).toList());
+
+    _conjuntosSalvos.removeWhere((conjunto) => conjunto.nome == nome);
+    _conjuntosSalvos.add(novoConjunto);
+    await _persistirConjuntosSalvos();
+    notifyListeners();
+  }
+
+  Future<void> _persistirConjuntosSalvos() async {
+    // ... (código existente)
+     final prefs = await SharedPreferences.getInstance();
+    List<String> conjuntosJson = _conjuntosSalvos.map((conjunto) => jsonEncode(conjunto.toJson())).toList();
+    await prefs.setStringList('conjuntosRitmoSalvos', conjuntosJson);
+  }
+
+  Future<void> carregarConjuntosSalvos() async {
+    // ... (código existente)
+    final prefs = await SharedPreferences.getInstance();
+    List<String>? conjuntosJson = prefs.getStringList('conjuntosRitmoSalvos');
+    if (conjuntosJson != null) {
+      _conjuntosSalvos = conjuntosJson.map((s) => ConjuntoRitmoModel.fromJson(jsonDecode(s) as Map<String, dynamic>)).toList();
+    }
+    // Não chama notifyListeners aqui, _notificarMudancasVisuais fará isso se necessário no construtor.
+  }
+
+  void aplicarConjuntoSalvo(ConjuntoRitmoModel conjunto) {
+    pararReproducao();
+    for (int i = 0; i < _fracoes.length; i++) {
+      if (i < conjunto.fracoes.length) {
+        _fracoes[i].numerador = conjunto.fracoes[i].numerador;
+        _fracoes[i].denominador = conjunto.fracoes[i].denominador;
+      } else {
+        _fracoes[i].numerador = null;
+        _fracoes[i].denominador = null;
+      }
+      _fracoes[i].estaSelecionada = false; // Resetar seleção ao carregar
+      _fracoes[i].estaTocando = false;
+    }
+    _notificarMudancasVisuais();
+  }
+
+  void excluirConjuntoSalvo(String nome) {
+    // ... (código existente)
+     _conjuntosSalvos.removeWhere((conjunto) => conjunto.nome == nome);
+    _persistirConjuntosSalvos();
+    notifyListeners();
+  }
+
+  void definirTempo(double novoTempo) {
+    _tempoBPM = novoTempo.clamp(30.0, 240.0);
+    if (estaTocandoGlobalmente) {
+      pararReproducao();
+      iniciarOuPausarReproducaoGlobal();
+    } else {
+      notifyListeners();
+    }
+  }
+
+  void definirOffsetHorizontalScroll(double novoOffsetTicks) {
+    // O maxOffset é conceitualmente infinito para o conteúdo, mas o slider precisa de um limite.
+    // O clamp aqui pode ser para o limite prático do slider.
+    _offsetHorizontalScroll = novoOffsetTicks; // Permitir valores negativos se o slider permitir
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _timerReproducao?.cancel();
+    _playerB1.dispose();
+    _playerB2.dispose();
+    _playerB3.dispose();
+    super.dispose();
+  }
+}
+----------------
+[user_interface\screens\tela_principal.dart]
+
+// user_interface/screens/tela_principal.dart
+
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../services/ritmo_provider.dart';
+import '../../user_interface/widgets/faixa_input_fracao.dart'; // Contém LinhaInputFracao (pública)
+import '../../user_interface/widgets/botao_faixa_individual.dart'; // Widget do botão criado
+import '../../user_interface/widgets/visualizador_ritmo.dart';
+import '../../user_interface/widgets/side_menu.dart'; // Widget do menu lateral
+
+// user_interface/screens/tela_principal.dart
+// ... (imports existentes)
+
+class TelaPrincipal extends StatefulWidget {
+  const TelaPrincipal({super.key});
+
+  @override
+  State<TelaPrincipal> createState() => _TelaPrincipalState();
+}
+
+class _TelaPrincipalState extends State<TelaPrincipal> {
+  final TextEditingController _controladorNomeSalvar = TextEditingController();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  // REMOVIDO: _visualizadorKey (não mais usado para calcular maxScrollOffset dessa forma)
+
+  void _mostrarDialogoSalvar() {
+    // ... (código existente)
+    _controladorNomeSalvar.clear();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Salvar Ritmo'),
+        content: TextField(
+          controller: _controladorNomeSalvar,
+          decoration: const InputDecoration(hintText: "Nome do ritmo"),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (_controladorNomeSalvar.text.isNotEmpty) {
+                Provider.of<RitmoProvider>(context, listen: false)
+                    .salvarConjuntoAtual(_controladorNomeSalvar.text);
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ritmoProvider = Provider.of<RitmoProvider>(context);
+
+    // Slider de scroll horizontal:
+    // O scroll é em "ticks". Definimos um número máximo de colunas para o slider.
+    const int maxColunasScrollSlider = 100; // Ex: permite scrollar até 100 colunas
+    final double maxScrollOffsetTicks = ritmoProvider.subdivisoesPorColunaVisual > 0
+        ? (maxColunasScrollSlider * ritmoProvider.subdivisoesPorColunaVisual).toDouble()
+        : 1.0; // Evita divisão por zero se subdivisoesPorColunaVisual for 0 inicialmente
+
+    double currentSliderValue = ritmoProvider.offsetHorizontalScroll.clamp(0.0, maxScrollOffsetTicks);
+    
+    // Se o valor do provider estiver fora do range do slider (ex: negativo), ajusta o valor do slider.
+    // O provider pode ter offset negativo se o slider permitir no futuro, mas por agora o slider é 0-max.
+    if (ritmoProvider.offsetHorizontalScroll < 0) currentSliderValue = 0;
+
+
+    return Scaffold(
+      key: _scaffoldKey,
+      drawer: SideMenu(
+        onSalvarRitmo: _mostrarDialogoSalvar,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Coluna Esquerda (Menu e Play/Stop)
+            // ... (código existente)
+            Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.menu),
+                  iconSize: 30,
+                  tooltip: 'Abrir menu',
+                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                ),
+                const Spacer(),
+                
+              ],
+            ),
+            const SizedBox(width: 10),
+
+            // Coluna Central (Visualizador, Controles, Slider de Scroll)
+            Expanded(
+              flex: 6,
+              child: Column(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: VisualizadorRitmo(), // Não precisa mais da key para calcular offset
+                  ),
+                  const SizedBox(height: 10),
+
+                  Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: IconButton(
+                    icon: Icon(
+                      ritmoProvider.estaTocandoGlobalmente
+                          ? Icons.stop_circle_outlined
+                          : Icons.play_circle_outline,
+                    ),
+                    iconSize: 60,
+                    color: ritmoProvider.estaTocandoGlobalmente
+                        ? Colors.redAccent.shade200
+                        : Colors.greenAccent.shade400,
+                    tooltip: ritmoProvider.estaTocandoGlobalmente ? 'Parar' : 'Tocar',
+                    onPressed: () {
+                      ritmoProvider.iniciarOuPausarReproducaoGlobal();
+                    },
+                  ),
+                ),
+
+                   // Slider para o scroll horizontal
+                  if (maxScrollOffsetTicks > 0.001)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+                      child: Slider(
+                        value: currentSliderValue,
+                        min: 0.0, // O slider atual só permite scroll para a direita
+                        max: maxScrollOffsetTicks,
+                        divisions: (maxScrollOffsetTicks / (ritmoProvider.subdivisoesPorColunaVisual > 0 ? ritmoProvider.subdivisoesPorColunaVisual : 1)).round().clamp(1, 10000), // Divide por colunas
+                        label: ritmoProvider.subdivisoesPorColunaVisual > 0 
+                               ? "Col: ${(currentSliderValue / ritmoProvider.subdivisoesPorColunaVisual).floor()}"
+                               : "Pos: ${currentSliderValue.round()}",
+                        onChanged: (double value) {
+                          ritmoProvider.definirOffsetHorizontalScroll(value);
+                        },
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 48 + 16), 
+                Expanded(
+                    flex: 2,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: ritmoProvider.fracoes.map((fracao) {
+                          return Row(
+                            mainAxisSize: MainAxisSize.min, // só ocupa o necessário
+                            children: [
+                              // Linha de entrada: "B1: [quadrado cor][campo 60px][lixeira]"
+                              LinhaInputFracao(fracao: fracao),
+                              const SizedBox(width: 8),
+                              // Botão logo ao lado: "B1" (quadrado colorido)
+                              BotaoFaixaIndividual(fracao: fracao),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+
+                 
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controladorNomeSalvar.dispose();
+    super.dispose();
+  }
+}
+----------------
+[user_interface\screens\tela_ritmos_salvos.dart]
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../services/ritmo_provider.dart';
+
+class TelaRitmosSalvos extends StatelessWidget {
+  const TelaRitmosSalvos({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final ritmoProvider = Provider.of<RitmoProvider>(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Ritmos Salvos'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: ritmoProvider.conjuntosSalvos.isEmpty
+          ? const Center(child: Text('Nenhum ritmo salvo ainda.'))
+          : ListView.builder(
+              itemCount: ritmoProvider.conjuntosSalvos.length,
+              itemBuilder: (context, index) {
+                final conjunto = ritmoProvider.conjuntosSalvos[index];
+                return ListTile(
+                  title: Text(conjunto.nome),
+                  subtitle: Text(conjunto.fracoes.map((f) => f.valorExibicao).where((v) => v.isNotEmpty).join(' | ')),
+                  onTap: () {
+                    ritmoProvider.aplicarConjuntoSalvo(conjunto);
+                    Navigator.pop(context); // Volta para a tela principal
+                  },
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete),
+                    onPressed: () {
+                       showDialog(
+                        context: context,
+                        builder: (BuildContext ctx) {
+                          return AlertDialog(
+                            title: const Text('Confirmar Exclusão'),
+                            content: Text('Tem certeza que deseja excluir o ritmo "${conjunto.nome}"?'),
+                            actions: <Widget>[
+                              TextButton(
+                                child: const Text('Cancelar'),
+                                onPressed: () {
+                                  Navigator.of(ctx).pop();
+                                },
+                              ),
+                              TextButton(
+                                child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+                                onPressed: () {
+                                  ritmoProvider.excluirConjuntoSalvo(conjunto.nome);
+                                  Navigator.of(ctx).pop();
+                                },
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+----------------
+[user_interface\widgets\botao_faixa_individual.dart]
+
+// user_interface/widgets/botao_faixa_individual.dart
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../models/fracao_model.dart';
+import '../../services/ritmo_provider.dart';
+
+class BotaoFaixaIndividual extends StatelessWidget {
+  final FracaoModel fracao;
+
+  const BotaoFaixaIndividual({
+    super.key,
+    required this.fracao,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Acessa o provider para o estado e ações
+    final ritmoProvider = Provider.of<RitmoProvider>(context);
+    bool estaSelecionada = fracao.estaSelecionada;
+
+    // Definir um tamanho fixo ou mínimo para o botão
+    const double larguraBotao = 100.0; // Ajuste conforme necessário
+    const double alturaBotao = 40.0;
+
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size(larguraBotao, alturaBotao), // Garante um tamanho mínimo
+        // Ou use fixedSize: Size(larguraBotao, alturaBotao) se quiser tamanho exato
+        backgroundColor: estaSelecionada ? fracao.cor.withOpacity(0.8) : Colors.blueGrey[700],
+        foregroundColor: Colors.white,
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: estaSelecionada
+              ? BorderSide(color: Colors.white.withOpacity(0.9), width: 2.5)
+              : BorderSide(color: Colors.blueGrey[600]!, width: 1.5),
+        ),
+        elevation: estaSelecionada ? 6 : 2,
+        padding: const EdgeInsets.symmetric(horizontal: 16.0) // Padding interno
+      ),
+      onPressed: () {
+        print("Botão Individual ${fracao.id} pressionado!");
+        ritmoProvider.toggleSelecaoFaixa(fracao.id);
+
+        // A lógica de iniciar/parar global pode ser mantida ou removida daqui,
+        // dependendo se você quer que clicar no botão inicie a reprodução
+        // ou apenas selecione a faixa. Vamos remover por enquanto,
+        // deixando o play/stop global com essa responsabilidade.
+        if (!ritmoProvider.estaTocandoGlobalmente) {
+          ritmoProvider.iniciarOuPausarReproducaoGlobal();
+        }
+      },
+      child: Text(fracao.id.toUpperCase()),
+    );
+  }
+}
+----------------
+[user_interface\widgets\controles_reproducao.dart]
+
+// user_interface/widgets/controles_reproducao.dart
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../services/ritmo_provider.dart';
+import '../../models/fracao_model.dart'; // Importar FracaoModel
+
+class ControlesReproducao extends StatelessWidget {
+  const ControlesReproducao({super.key});
+
+  Widget _construirBotaoSelecaoFaixa(BuildContext context, FracaoModel fracao, RitmoProvider ritmoProvider) {
+    // Adicione este print para ver se o botão está sendo construído com o estado correto
+    print("Construindo botão ${fracao.id}, selecionada: ${fracao.estaSelecionada}, cor: ${fracao.cor}");
+
+    bool estaSelecionada = fracao.estaSelecionada;
+
+    // Fator de largura desejado (ex: 0.8 para 80% da largura disponível)
+    const double larguraBotaoFactor = 0.5; // Ajuste este valor conforme necessário (0.1 a 1.0)
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: LayoutBuilder( // Usar LayoutBuilder para obter as restrições do pai
+        builder: (BuildContext context, BoxConstraints constraints) {
+          // constraints.maxWidth será a largura total disponível para o botão
+          // devido ao CrossAxisAlignment.stretch da Column pai.
+          final double larguraDoBotao = constraints.maxWidth * larguraBotaoFactor;
+
+          return Center( // Centralizar o botão que agora terá uma largura fixa
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                fixedSize: Size(larguraDoBotao, 40), // Largura dinâmica, altura fixa
+                backgroundColor: estaSelecionada ? fracao.cor.withOpacity(0.8) : Colors.blueGrey[700],
+                foregroundColor: Colors.white,
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: estaSelecionada
+                      ? BorderSide(color: Colors.white.withOpacity(0.9), width: 2.5)
+                      : BorderSide(color: Colors.blueGrey[600]!, width: 1.5),
+                ),
+                elevation: estaSelecionada ? 6 : 2,
+              ),
+              onPressed: () {
+                print("Botão ${fracao.id} pressionado!");
+                ritmoProvider.toggleSelecaoFaixa(fracao.id);
+
+                if (!ritmoProvider.estaTocandoGlobalmente) {
+                  ritmoProvider.iniciarOuPausarReproducaoGlobal();
+                }
+              },
+              child: Text(fracao.id.toUpperCase()),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<RitmoProvider>(
+      builder: (context, ritmoProvider, child) {
+        print("ControlesReproducao Consumer está reconstruindo.");
+
+        final fracaoB1 = ritmoProvider.fracoes.firstWhere((f) => f.id == 'b1', orElse: () {
+          print("ERRO: Fração b1 não encontrada em ritmoProvider.fracoes!");
+          return FracaoModel(id: 'b1', cor: Colors.grey, assetSom: '', estaSelecionada: false);
+        });
+        final fracaoB2 = ritmoProvider.fracoes.firstWhere((f) => f.id == 'b2', orElse: () {
+          print("ERRO: Fração b2 não encontrada em ritmoProvider.fracoes!");
+          return FracaoModel(id: 'b2', cor: Colors.grey, assetSom: '', estaSelecionada: false);
+        });
+        final fracaoB3 = ritmoProvider.fracoes.firstWhere((f) => f.id == 'b3', orElse: () {
+          print("ERRO: Fração b3 não encontrada em ritmoProvider.fracoes!");
+          return FracaoModel(id: 'b3', cor: Colors.grey, assetSom: '', estaSelecionada: false);
+        });
+
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch, // Mantém o stretch
+            children: [
+              _construirBotaoSelecaoFaixa(context, fracaoB1, ritmoProvider),
+              const SizedBox(height: 12),
+              _construirBotaoSelecaoFaixa(context, fracaoB2, ritmoProvider),
+              const SizedBox(height: 12),
+              _construirBotaoSelecaoFaixa(context, fracaoB3, ritmoProvider),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+----------------
+[user_interface\widgets\faixa_input_fracao.dart]
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../models/fracao_model.dart';
+import '../../services/ritmo_provider.dart';
+
+class FaixaInputFracao extends StatelessWidget {
+  const FaixaInputFracao({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final ritmoProvider = Provider.of<RitmoProvider>(context);
+
+    return Container(
+      
+     
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center, // Distribui espaço entre os inputs
+        children: ritmoProvider.fracoes.map((fracao) {
+          // Adiciona um padding em volta de cada linha de input para espaçamento
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5.0, horizontal: 8.0),
+            child: LinhaInputFracao(fracao: fracao),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class LinhaInputFracao extends StatefulWidget {
+  final FracaoModel fracao;
+
+  const LinhaInputFracao({required this.fracao});
+
+  @override
+  State<LinhaInputFracao> createState() => _LinhaInputFracaoState();
+}
+
+class _LinhaInputFracaoState extends State<LinhaInputFracao> {
+  late TextEditingController _controlador;
+
+  @override
+  void initState() {
+    super.initState();
+    _controlador = TextEditingController(text: widget.fracao.valorExibicao);
+  }
+
+  @override
+  void didUpdateWidget(covariant LinhaInputFracao oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    print("TextField (${widget.fracao.id}) didUpdateWidget. Modelo_Exibicao: ${widget.fracao.valorExibicao}, Controlador_Texto: ${_controlador.text}");
+
+    if (oldWidget.fracao.valorExibicao != widget.fracao.valorExibicao) {
+      final novoTexto = widget.fracao.valorExibicao;
+      if (_controlador.text != novoTexto) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _controlador.text = novoTexto;
+          _controlador.selection = TextSelection.fromPosition(
+            TextPosition(offset: novoTexto.length),
+          );
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controlador.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Fator de largura para o TextField (ex: 0.6 para 60% do espaço disponível para ele)
+    // const double textFieldWidthFactor = 0.5; // Ajuste conforme necessário
+
+    return Row(
+      children: [
+        Text('${widget.fracao.id.toUpperCase()}:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)), // Cor do texto
+        const SizedBox(width: 5),
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+             color: widget.fracao.cor,
+             border: Border.all(color: Colors.white.withOpacity(0.5), width: 1),
+             borderRadius: BorderRadius.circular(4)
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Expanded( // Expanded ainda é necessário para que esta seção ocupe o espaço restante
+          
+        //   child: Row(
+        //     children: [
+        //       Expanded(
+        //          child: SizedBox( // Mantém a altura do TextField e serve de pai para FractionallySizedBox
+            
+        //     height: 40,
+        //    // Alinha o TextField à esquerda dentro do espaço fracionado
+        //       child: TextField(
+        //         controller: _controlador,
+        //         keyboardType: TextInputType.text,
+        //         textAlignVertical: TextAlignVertical.center,
+        //         style: const TextStyle(color: Colors.black87), // Cor do texto dentro do input
+        //         decoration: InputDecoration(
+        //           hintText: 'N:D',
+        //           hintStyle: TextStyle(color: Colors.grey[600]),
+        //           isDense: true,
+        //           filled: true, // Para a cor de fundo do TextField funcionar
+        //           fillColor: Colors.white.withOpacity(0.9), // Cor de fundo do TextField
+        //           contentPadding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0), // Ajuste o padding interno
+        //           border: OutlineInputBorder(
+        //             borderRadius: BorderRadius.circular(6.0),
+        //             borderSide: BorderSide.none, // Remove a borda padrão se 'filled' é true
+        //           ),
+        //           enabledBorder: OutlineInputBorder( // Borda quando não focado
+        //             borderRadius: BorderRadius.circular(6.0),
+        //             borderSide: BorderSide(color: Colors.grey[400]!, width: 1.0),
+        //           ),
+        //           focusedBorder: OutlineInputBorder( // Borda quando focado
+        //             borderRadius: BorderRadius.circular(6.0),
+        //             borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 1.5),
+        //           ),
+        //         ),
+        //         onChanged: (valor) {
+        //           print("TextField (${widget.fracao.id}) onChanged: $valor");
+        //           Provider.of<RitmoProvider>(context, listen: false)
+        //               .atualizarValorFracao(widget.fracao.id, valor);
+        //         },
+        //       ),
+            
+        //   ),
+          
+        //       ),
+        //        IconButton(
+        //   icon: const Icon(Icons.delete_outline, color: Colors.white70),
+        //   padding: EdgeInsets.zero, // Remove padding extra do IconButton
+        //   constraints: const BoxConstraints(), // Permite que o IconButton seja menor
+        //   onPressed: () {
+        //     _controlador.clear();
+        //     Provider.of<RitmoProvider>(context, listen: false)
+        //         .excluirValorFracao(widget.fracao.id);
+        //   },
+        // ),
+        //     ],
+        //   )
+          
+          
+         
+        // ),
+
+        Row(
+        children: [
+            SizedBox(
+             width: 90,   // largura fixa o suficiente para “3:3”
+              height: 30,
+              child: TextField(
+                controller: _controlador,
+                keyboardType: TextInputType.text,
+               textAlignVertical: TextAlignVertical.center,
+               style: const TextStyle(color: Colors.black87),
+                decoration: InputDecoration(
+                  hintText: 'N:D',
+                  hintStyle: TextStyle(color: Colors.grey[600]),
+                  isDense: true,
+                  filled: true,
+                  fillColor: Colors.white.withOpacity(0.9),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 6.0, vertical: 4.0),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(6.0),
+                   borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                   borderRadius: BorderRadius.circular(6.0),
+                   borderSide: BorderSide(color: Colors.grey[400]!, width: 1.0),
+                ),
+                focusedBorder: OutlineInputBorder(
+                   borderRadius: BorderRadius.circular(6.0),
+                   borderSide:
+                        BorderSide(color: Theme.of(context).primaryColor, width: 1.5),                  ),
+               ),
+               onChanged: (valor) {
+                 Provider.of<RitmoProvider>(context, listen: false)
+                     .atualizarValorFracao(widget.fracao.id, valor);
+               },
+             ),
+           ),
+           const SizedBox(width: 4),
+           IconButton(
+             icon: const Icon(Icons.delete_outline, color: Colors.white70),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+             onPressed: () {
+               _controlador.clear();
+               Provider.of<RitmoProvider>(context, listen: false)
+                   .excluirValorFracao(widget.fracao.id);
+            },
+           ),
+         ],
+        ),
+       
+      ],
+    );
+  }
+}
+----------------
+[user_interface\widgets\side_menu.dart]
+
+// user_interface/widgets/side_menu.dart
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../services/ritmo_provider.dart';
+import '../../user_interface/screens/tela_ritmos_salvos.dart'; // Para navegação
+
+class SideMenu extends StatelessWidget {
+  // Callback para acionar a função de salvar da TelaPrincipal
+  final VoidCallback onSalvarRitmo;
+
+  const SideMenu({
+    super.key,
+    required this.onSalvarRitmo,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Usar Consumer para que o Slider e o texto do BPM se atualizem
+    return Consumer<RitmoProvider>(
+      builder: (context, ritmoProvider, child) {
+        return Drawer(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: <Widget>[
+              DrawerHeader(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor, // Ou a cor que desejar
+                ),
+                child: const Text(
+                  'Ritmatica',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("Tempo (BPM):", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Slider(
+                            value: ritmoProvider.tempoBPM,
+                            min: 30,
+                            max: 240,
+                            divisions: (240 - 30).toInt(),
+                            label: ritmoProvider.tempoBPM.round().toString(),
+                            onChanged: (double value) {
+                              ritmoProvider.definirTempo(value);
+                            },
+                          ),
+                        ),
+                        Text(ritmoProvider.tempoBPM.round().toString(), style: const TextStyle(fontSize: 16)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.save_alt_outlined),
+                title: const Text('Salvar Ritmo Atual'),
+                onTap: () {
+                  Navigator.pop(context); // Fecha o drawer primeiro
+                  onSalvarRitmo(); // Chama a função da TelaPrincipal
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.list_alt_outlined),
+                title: const Text('Ver Ritmos Salvos'),
+                onTap: () {
+                  Navigator.pop(context); // Fecha o drawer
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const TelaRitmosSalvos()),
+                  );
+                },
+              ),
+
+
+
+
+
+ListTile(
+  title: const Text('Largura da Coluna'),
+  subtitle: Consumer<RitmoProvider>(
+    builder: (_, provider, __) {
+      return Slider(
+        min: 20,
+        max: 200,
+        divisions: 9,
+        value: provider.subdivisoesPorColunaVisual.toDouble(),
+        label: provider.subdivisoesPorColunaVisual.toString(),
+        onChanged: (valor) {
+          provider.atualizarLarguraColuna(valor.toInt());
+        },
+      );
+    },
+  ),
+),
+
+ListTile(
+  title: const Text('Ticks por Coluna Visual'), // Nome mais descritivo
+  subtitle: Consumer<RitmoProvider>(
+    builder: (_, provider, __) {
+      // Valores de exemplo, ajuste conforme a necessidade de granularidade
+      // para as frações. Um bom LCM para denominadores comuns é útil.
+      // (ex: 12, 16, 24, 32, 36, 48, 60)
+      double sliderValue = provider.subdivisoesPorColunaVisual.toDouble().clamp(4.0, 64.0);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Slider(
+            min: 4,  // Mínimo de ticks (ex: para representar 1/2, 1/4)
+            max: 64, // Máximo de ticks
+            divisions: (64 - 4) ~/ 4, // Ex: divisões em passos de 4
+            value: sliderValue,
+            label: provider.subdivisoesPorColunaVisual.toString(),
+            onChanged: (valor) {
+              provider.atualizarLarguraColuna(valor.toInt());
+            },
+          ),
+          Text("${provider.subdivisoesPorColunaVisual} ticks", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        ],
+      );
+    },
+  ),
+),
+
+
+              
+              // Adicione mais opções de menu aqui se necessário
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+----------------
+[user_interface\widgets\visualizador_ritmo.dart]
+
+// visualizador_ritmo.dart
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../models/fracao_model.dart';
+import '../../services/ritmo_provider.dart';
+import 'dart:math';
+
+class VisualizadorRitmo extends StatelessWidget {
+  const VisualizadorRitmo({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<RitmoProvider>(
+      builder: (context, provider, child) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth == 0 || constraints.maxHeight == 0) {
+              return const SizedBox.shrink();
+            }
+            return Container(
+              width: double.infinity,
+              height: double.infinity,
+              clipBehavior: Clip.hardEdge,
+              decoration: BoxDecoration(
+                color: Colors.black,
+                border: Border.all(color: Colors.grey[800]!, width: 1),
+              ),
+              child: CustomPaint(
+                painter: PintorRitmo(
+                  fracoes: provider.fracoes,
+                  circleIndex: provider.batidaAtual,
+                  subdivisoesPorColuna: provider.subdivisoesPorColunaVisual,
+                  estaTocandoGlobalmente: provider.estaTocandoGlobalmente,
+                  offsetHorizontalTicks: provider.offsetHorizontalScroll,
+                  canvasSize: constraints.biggest,
+                  bolinhasMostradas: provider.bolinhasMostradas, // novo campo obrigatório
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class PintorRitmo extends CustomPainter {
+  final List<FracaoModel> fracoes;
+  final int circleIndex; // quantidade de bolinhas já exibidas
+  final int subdivisoesPorColuna;
+  final bool estaTocandoGlobalmente;
+  final double offsetHorizontalTicks;
+  final Size canvasSize;
+   final Map<String, int> bolinhasMostradas;
+
+  static const double RAIO_BOLINHA = 7.0;
+  static const double ESPACO_SEGMENTO = 7.0;
+  static const double ESPESSURA_LINHA = 1.5;
+
+  PintorRitmo({
+    required this.fracoes,
+    required this.circleIndex,
+    required this.subdivisoesPorColuna,
+    required this.estaTocandoGlobalmente,
+    required this.offsetHorizontalTicks,
+    required this.canvasSize,
+    required this.bolinhasMostradas,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (subdivisoesPorColuna <= 0 || fracoes.isEmpty) return;
+
+    // --- CALCULA LARGURA FIXA DAS COLUNAS E OFFSET ---
+    final double larguraColuna = ESPACO_SEGMENTO * subdivisoesPorColuna;
+    final double offsetX = offsetHorizontalTicks * ESPACO_SEGMENTO;
+
+    // --- DESENHA COLUNAS TRACEJADAS FIXAS DE FUNDO ---
+    final Paint paintGrid = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+
+    double xStart = ((-offsetX / larguraColuna).floor()) * larguraColuna;
+    for (double x = xStart;
+        x < -offsetX + size.width + larguraColuna;
+        x += larguraColuna) {
+      double xCanvas = x + offsetX;
+      if (xCanvas >= -larguraColuna && xCanvas <= size.width + larguraColuna) {
+        for (double y = 0; y < size.height; y += 10) {
+          canvas.drawLine(
+            Offset(xCanvas, y),
+            Offset(xCanvas, y + 5),
+            paintGrid,
+          );
+        }
+      }
+    }
+
+    // --- DESENHA BOLINHAS E LINHA DE CONEXÃO ---
+    final double alturaTotal = size.height * 0.9;
+    final double margemV = size.height * 0.1 / 2;
+    final double alturaFaixa = alturaTotal / fracoes.length;
+
+    for (int row = 0; row < fracoes.length; row++) {
+      final fracao = fracoes[row];
+      if (!fracao.estaTocando || fracao.numerador == null || fracao.denominador == null) continue;
+
+      final int cols = fracao.numerador!;    // número de colunas no bloco
+      final int bols = fracao.denominador!;  // bolinhas por bloco
+      final double blocoW = cols * larguraColuna;
+      final double yCenter = margemV + alturaFaixa * row + alturaFaixa / 2;
+
+      // pré-calcular posições de cada bolinha em cada bloco
+      List<Offset> allPositions = [];
+      for (double x = -offsetX % blocoW - blocoW;
+          x < size.width;
+          x += blocoW) {
+        if (cols == bols) {
+          // caso bols == cols: uma bolinha por coluna, centralizada em cada coluna
+          for (int c = 0; c < cols; c++) {
+            double posX = x + c * larguraColuna + larguraColuna / 2;
+            allPositions.add(Offset(posX, yCenter));
+          }
+        } else {
+          // distribui bols bolinhas ao longo do bloco, última no tracejado
+          for (int b = 0; b < bols; b++) {
+            double fracPos = (b + 1) / bols;
+            allPositions.add(Offset(x + fracPos * blocoW, yCenter));
+          }
+        }
+      }
+
+      // determina quantas bolinhas exibir até agora
+      // int count = min(circleIndex, allPositions.length);
+      // if (count <= 0) continue;
+
+      final int count = min(bolinhasMostradas[fracao.id] ?? 0, allPositions.length);
+  if (count <= 0) continue;
+
+      // pinta linha de conexão até a última bolinha
+      final Paint paintLine = Paint()
+        ..color = fracao.cor.withOpacity(0.8)
+        ..strokeWidth = ESPESSURA_LINHA
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(allPositions.first, allPositions[count - 1], paintLine);
+
+      // pinta bolinhas
+      final Paint paintDot = Paint()..color = fracao.cor;
+      for (int i = 0; i < count; i++) {
+        canvas.drawCircle(allPositions[i], RAIO_BOLINHA, paintDot);
+      }
+    }
+  }
+
+  // @override
+  // bool shouldRepaint(covariant PintorRitmo old) =>
+  //     old.circleIndex != circleIndex ||
+  //     old.estaTocandoGlobalmente != estaTocandoGlobalmente ||
+  //     old.offsetHorizontalTicks != offsetHorizontalTicks ||
+  //     old.subdivisoesPorColuna != subdivisoesPorColuna;
+
+    @override
+  bool shouldRepaint(covariant PintorRitmo old) {
+    if (old.estaTocandoGlobalmente != estaTocandoGlobalmente) return true;
+    if (old.offsetHorizontalTicks != offsetHorizontalTicks) return true;
+    if (old.subdivisoesPorColuna != subdivisoesPorColuna) return true;
+
+    // **Verifica se mudou o número de bolinhas para qualquer fração**
+    for (var f in fracoes) {
+      final oldCount = old.bolinhasMostradas[f.id] ?? 0;
+      final newCount = bolinhasMostradas[f.id] ?? 0;
+      if (oldCount != newCount) return true;
+    }
+
+    return false;
+  }
+
+}
+
+----------------
+[utils\cores.dart]
+
+import 'package:flutter/material.dart';
+
+class AppCores {
+  static const Color corB1 = Colors.blue;   // Como visto no vídeo
+  static const Color corB2 = Colors.red;    // Como visto no vídeo
+  static const Color corB3 = Colors.yellow; // Como visto no vídeo
+}
+----------------
