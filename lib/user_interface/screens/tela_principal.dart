@@ -1,6 +1,5 @@
 // user_interface/screens/tela_principal.dart
 
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/ritmo_provider.dart';
@@ -8,6 +7,7 @@ import '../../user_interface/widgets/faixa_input_fracao.dart'; // Contém LinhaI
 import '../../user_interface/widgets/botao_faixa_individual.dart'; // Widget do botão criado
 import '../../user_interface/widgets/visualizador_ritmo.dart';
 import '../../user_interface/widgets/side_menu.dart'; // Widget do menu lateral
+import 'dart:math';
 
 // user_interface/screens/tela_principal.dart
 // ... (imports existentes)
@@ -25,33 +25,35 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
   // REMOVIDO: _visualizadorKey (não mais usado para calcular maxScrollOffset dessa forma)
 
   void _mostrarDialogoSalvar() {
-    // ... (código existente)
     _controladorNomeSalvar.clear();
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Salvar Ritmo'),
-        content: TextField(
-          controller: _controladorNomeSalvar,
-          decoration: const InputDecoration(hintText: "Nome do ritmo"),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Salvar Ritmo'),
+            content: TextField(
+              controller: _controladorNomeSalvar,
+              decoration: const InputDecoration(hintText: "Nome do ritmo"),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () {
+                  if (_controladorNomeSalvar.text.isNotEmpty) {
+                    Provider.of<RitmoProvider>(
+                      context,
+                      listen: false,
+                    ).salvarConjuntoAtual(_controladorNomeSalvar.text);
+                  }
+                  Navigator.pop(context);
+                },
+                child: const Text('Salvar'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              if (_controladorNomeSalvar.text.isNotEmpty) {
-                Provider.of<RitmoProvider>(context, listen: false)
-                    .salvarConjuntoAtual(_controladorNomeSalvar.text);
-              }
-              Navigator.pop(context);
-            },
-            child: const Text('Salvar'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -59,32 +61,28 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
   Widget build(BuildContext context) {
     final ritmoProvider = Provider.of<RitmoProvider>(context);
 
-    // Slider de scroll horizontal:
-    // O scroll é em "ticks". Definimos um número máximo de colunas para o slider.
-    const int maxColunasScrollSlider = 100; // Ex: permite scrollar até 100 colunas
-    final double maxScrollOffsetTicks = ritmoProvider.subdivisoesPorColunaVisual > 0
-        ? (maxColunasScrollSlider * ritmoProvider.subdivisoesPorColunaVisual).toDouble()
-        : 1.0; // Evita divisão por zero se subdivisoesPorColunaVisual for 0 inicialmente
+      const int maxColunasIniciaisSlider = 100;
+    final double initialMaxTicks = (maxColunasIniciaisSlider * ritmoProvider.subdivisoesPorColunaVisual).toDouble();
 
-    double currentSliderValue = ritmoProvider.offsetHorizontalScroll.clamp(0.0, maxScrollOffsetTicks);
-    
-    // Se o valor do provider estiver fora do range do slider (ex: negativo), ajusta o valor do slider.
-    // O provider pode ter offset negativo se o slider permitir no futuro, mas por agora o slider é 0-max.
-    if (ritmoProvider.offsetHorizontalScroll < 0) currentSliderValue = 0;
+    // 2. Obtenha o valor atual do scroll do nosso estado (provider).
+    final double currentOffset = ritmoProvider.offsetHorizontalScroll;
 
+    // 3. Calcule o 'max' do slider. Ele deve ser o valor inicial ou o valor atual, o que for MAIOR.
+    //    Isso garante que o trilho do slider sempre cresça para acomodar o valor.
+    final double sliderMaximum = max(initialMaxTicks, currentOffset);
+
+    // 4. O valor do slider é o valor atual do scroll.
+    //    Usamos .clamp() como uma segurança final para garantir que ele NUNCA ultrapasse o 'max'.
+    final double sliderValue = currentOffset.clamp(0.0, sliderMaximum);
 
     return Scaffold(
       key: _scaffoldKey,
-      drawer: SideMenu(
-        onSalvarRitmo: _mostrarDialogoSalvar,
-      ),
+      drawer: SideMenu(onSalvarRitmo: _mostrarDialogoSalvar),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Coluna Esquerda (Menu e Play/Stop)
-            // ... (código existente)
             Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -96,10 +94,9 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
                   onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                 ),
                 const Spacer(),
-                
               ],
             ),
-            const SizedBox(width: 10),
+            // const SizedBox(width: 10),
 
             // Coluna Central (Visualizador, Controles, Slider de Scroll)
             Expanded(
@@ -108,71 +105,97 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
                 children: [
                   Expanded(
                     flex: 3,
-                    child: VisualizadorRitmo(), // Não precisa mais da key para calcular offset
+                    child:
+                        VisualizadorRitmo(), // Não precisa mais da key para calcular offset
                   ),
                   const SizedBox(height: 10),
 
-                  Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: IconButton(
-                    icon: Icon(
-                      ritmoProvider.estaTocandoGlobalmente
-                          ? Icons.stop_circle_outlined
-                          : Icons.play_circle_outline,
-                    ),
-                    iconSize: 60,
-                    color: ritmoProvider.estaTocandoGlobalmente
-                        ? Colors.redAccent.shade200
-                        : Colors.greenAccent.shade400,
-                    tooltip: ritmoProvider.estaTocandoGlobalmente ? 'Parar' : 'Tocar',
-                    onPressed: () {
-                      ritmoProvider.iniciarOuPausarReproducaoGlobal();
-                    },
-                  ),
-                ),
-
-                   // Slider para o scroll horizontal
-                  if (maxScrollOffsetTicks > 0.001)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
-                      child: Slider(
-                        value: currentSliderValue,
-                        min: 0.0, // O slider atual só permite scroll para a direita
-                        max: maxScrollOffsetTicks,
-                        divisions: (maxScrollOffsetTicks / (ritmoProvider.subdivisoesPorColunaVisual > 0 ? ritmoProvider.subdivisoesPorColunaVisual : 1)).round().clamp(1, 10000), // Divide por colunas
-                        label: ritmoProvider.subdivisoesPorColunaVisual > 0 
-                               ? "Col: ${(currentSliderValue / ritmoProvider.subdivisoesPorColunaVisual).floor()}"
-                               : "Pos: ${currentSliderValue.round()}",
-                        onChanged: (double value) {
-                          ritmoProvider.definirOffsetHorizontalScroll(value);
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // botão de play/stop
+                      IconButton(
+                        icon: Icon(
+                          ritmoProvider.estaTocandoGlobalmente
+                              ? Icons.stop_circle_outlined
+                              : Icons.play_circle_outline,
+                        ),
+                        iconSize: 48,
+                        color:
+                            ritmoProvider.estaTocandoGlobalmente
+                                ? Colors.redAccent.shade200
+                                : Colors.white,
+                        tooltip:
+                            ritmoProvider.estaTocandoGlobalmente
+                                ? 'Parar'
+                                : 'Tocar',
+                        onPressed: () {
+                          ritmoProvider.iniciarOuPausarReproducaoGlobal();
                         },
                       ),
-                    )
-                  else
-                    const SizedBox(height: 48 + 16), 
-                Expanded(
-                    flex: 2,
+
+                      const SizedBox(width: 12),
+
+                      IconButton(
+                      icon: const Icon(Icons.arrow_back_ios),
+                      tooltip: 'Retroceder',
+                      onPressed: () {
+                        // Você pode ajustar o número de colunas a retroceder.
+                        ritmoProvider.retrocederScroll(colunas: 10);
+                      },
+                    ),
+
+                      // slider ocupando o resto do espaço (ou largura fixa, se preferir)
+                      // if (maxScrollOffsetTicks > 0.001)
+                     Expanded(
+                        child: Slider(
+                          value: sliderValue, // <- Usa a variável segura
+                          min: 0.0,
+                          max: sliderMaximum, // <- Usa a variável segura
+                          divisions: (sliderMaximum > 0)
+                              ? (sliderMaximum / (ritmoProvider.subdivisoesPorColunaVisual > 0 ? ritmoProvider.subdivisoesPorColunaVisual : 1))
+                                  .round()
+                                  .clamp(1, 100000)
+                              : 1,
+                          label: "Col: ${(currentOffset / ritmoProvider.subdivisoesPorColunaVisual).floor()}",
+                          onChanged: (double value) {
+                            ritmoProvider.definirOffsetHorizontalScroll(value);
+                          },
+                        ),
+                      ),
+                     IconButton(
+                      icon: const Icon(Icons.arrow_forward_ios),
+                      tooltip: 'Avançar',
+                      onPressed: () {
+                        // Você pode ajustar o número de colunas a avançar.
+                        ritmoProvider.avancarScroll(colunas: 10);
+                      },
+                    ),
+                    ],
+                  ),
+
+                  Expanded(
+                    flex: 1,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8.0),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: ritmoProvider.fracoes.map((fracao) {
-                          return Row(
-                            mainAxisSize: MainAxisSize.min, // só ocupa o necessário
-                            children: [
-                              // Linha de entrada: "B1: [quadrado cor][campo 60px][lixeira]"
-                              LinhaInputFracao(fracao: fracao),
-                              const SizedBox(width: 8),
-                              // Botão logo ao lado: "B1" (quadrado colorido)
-                              BotaoFaixaIndividual(fracao: fracao),
-                            ],
-                          );
-                        }).toList(),
+                        children:
+                            ritmoProvider.fracoes.map((fracao) {
+                              return Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // esta linha já inclui o TextField e o ícone de lixeira
+                                  LinhaInputFracao(fracao: fracao),
+                                  const SizedBox(height: 4),
+                                  // agora o botão "B1/B2/B3" fica abaixo do input
+                                  BotaoFaixaIndividual(fracao: fracao),
+                                ],
+                              );
+                            }).toList(),
                       ),
                     ),
                   ),
-
-                 
                 ],
               ),
             ),

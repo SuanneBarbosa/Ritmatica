@@ -29,179 +29,105 @@ class FaixaInputFracao extends StatelessWidget {
 
 class LinhaInputFracao extends StatefulWidget {
   final FracaoModel fracao;
-
-  const LinhaInputFracao({required this.fracao});
+  const LinhaInputFracao({required this.fracao, super.key});
 
   @override
   State<LinhaInputFracao> createState() => _LinhaInputFracaoState();
 }
 
 class _LinhaInputFracaoState extends State<LinhaInputFracao> {
-  late TextEditingController _controlador;
+  late TextEditingController _numCtrl;
+  late TextEditingController _denCtrl;
 
   @override
   void initState() {
     super.initState();
-    _controlador = TextEditingController(text: widget.fracao.valorExibicao);
+    _numCtrl = TextEditingController(
+        text: widget.fracao.numerador?.toString() ?? '');
+    _denCtrl = TextEditingController(
+        text: widget.fracao.denominador?.toString() ?? '');
   }
 
   @override
-  void didUpdateWidget(covariant LinhaInputFracao oldWidget) {
-    super.didUpdateWidget(oldWidget);
+  void didUpdateWidget(covariant LinhaInputFracao old) {
+    super.didUpdateWidget(old);
+    if (old.fracao.numerador?.toString() !=
+        widget.fracao.numerador?.toString()) {
+      _numCtrl.text = widget.fracao.numerador?.toString() ?? '';
+    }
+    if (old.fracao.denominador?.toString() !=
+        widget.fracao.denominador?.toString()) {
+      _denCtrl.text = widget.fracao.denominador?.toString() ?? '';
+    }
+  }
 
-    print("TextField (${widget.fracao.id}) didUpdateWidget. Modelo_Exibicao: ${widget.fracao.valorExibicao}, Controlador_Texto: ${_controlador.text}");
-
-    if (oldWidget.fracao.valorExibicao != widget.fracao.valorExibicao) {
-      final novoTexto = widget.fracao.valorExibicao;
-      if (_controlador.text != novoTexto) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          _controlador.text = novoTexto;
-          _controlador.selection = TextSelection.fromPosition(
-            TextPosition(offset: novoTexto.length),
-          );
-        });
-      }
+  void _onChanged() {
+    final num = int.tryParse(_numCtrl.text);
+    final den = int.tryParse(_denCtrl.text);
+    final prov = Provider.of<RitmoProvider>(context, listen: false);
+    if (num != null && den != null && num > 0 && den > 0) {
+      prov.atualizarValorFracao(widget.fracao.id, '$num:$den');
+    } else {
+      prov.atualizarValorFracao(widget.fracao.id, '');
     }
   }
 
   @override
   void dispose() {
-    _controlador.dispose();
+    _numCtrl.dispose();
+    _denCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Fator de largura para o TextField (ex: 0.6 para 60% do espaço disponível para ele)
-    // const double textFieldWidthFactor = 0.5; // Ajuste conforme necessário
-
     return Row(
       children: [
-        Text('${widget.fracao.id.toUpperCase()}:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)), // Cor do texto
-        const SizedBox(width: 5),
-        Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-             color: widget.fracao.cor,
-             border: Border.all(color: Colors.white.withOpacity(0.5), width: 1),
-             borderRadius: BorderRadius.circular(4)
+        Text(widget.fracao.id.toUpperCase(),
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: widget.fracao.cor)),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 40,
+          height: 32,
+          child: TextField(
+            controller: _numCtrl,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            decoration: const InputDecoration(
+              hintText: 'N',
+              isDense: true,
+            ),
+            onChanged: (_) => _onChanged(),
+          ),
+        ),
+        const Text('/', style: TextStyle(fontSize: 16)),
+        SizedBox(
+          width: 40,
+          height: 32,
+          child: TextField(
+            controller: _denCtrl,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            decoration: const InputDecoration(
+              hintText: 'D',
+              isDense: true,
+            ),
+            onChanged: (_) => _onChanged(),
           ),
         ),
         const SizedBox(width: 8),
-        // Expanded( // Expanded ainda é necessário para que esta seção ocupe o espaço restante
-          
-        //   child: Row(
-        //     children: [
-        //       Expanded(
-        //          child: SizedBox( // Mantém a altura do TextField e serve de pai para FractionallySizedBox
-            
-        //     height: 40,
-        //    // Alinha o TextField à esquerda dentro do espaço fracionado
-        //       child: TextField(
-        //         controller: _controlador,
-        //         keyboardType: TextInputType.text,
-        //         textAlignVertical: TextAlignVertical.center,
-        //         style: const TextStyle(color: Colors.black87), // Cor do texto dentro do input
-        //         decoration: InputDecoration(
-        //           hintText: 'N:D',
-        //           hintStyle: TextStyle(color: Colors.grey[600]),
-        //           isDense: true,
-        //           filled: true, // Para a cor de fundo do TextField funcionar
-        //           fillColor: Colors.white.withOpacity(0.9), // Cor de fundo do TextField
-        //           contentPadding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0), // Ajuste o padding interno
-        //           border: OutlineInputBorder(
-        //             borderRadius: BorderRadius.circular(6.0),
-        //             borderSide: BorderSide.none, // Remove a borda padrão se 'filled' é true
-        //           ),
-        //           enabledBorder: OutlineInputBorder( // Borda quando não focado
-        //             borderRadius: BorderRadius.circular(6.0),
-        //             borderSide: BorderSide(color: Colors.grey[400]!, width: 1.0),
-        //           ),
-        //           focusedBorder: OutlineInputBorder( // Borda quando focado
-        //             borderRadius: BorderRadius.circular(6.0),
-        //             borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 1.5),
-        //           ),
-        //         ),
-        //         onChanged: (valor) {
-        //           print("TextField (${widget.fracao.id}) onChanged: $valor");
-        //           Provider.of<RitmoProvider>(context, listen: false)
-        //               .atualizarValorFracao(widget.fracao.id, valor);
-        //         },
-        //       ),
-            
-        //   ),
-          
-        //       ),
-        //        IconButton(
-        //   icon: const Icon(Icons.delete_outline, color: Colors.white70),
-        //   padding: EdgeInsets.zero, // Remove padding extra do IconButton
-        //   constraints: const BoxConstraints(), // Permite que o IconButton seja menor
-        //   onPressed: () {
-        //     _controlador.clear();
-        //     Provider.of<RitmoProvider>(context, listen: false)
-        //         .excluirValorFracao(widget.fracao.id);
-        //   },
-        // ),
-        //     ],
-        //   )
-          
-          
-         
-        // ),
-
-        Row(
-        children: [
-            SizedBox(
-             width: 90,   // largura fixa o suficiente para “3:3”
-              height: 30,
-              child: TextField(
-                controller: _controlador,
-                keyboardType: TextInputType.text,
-               textAlignVertical: TextAlignVertical.center,
-               style: const TextStyle(color: Colors.black87),
-                decoration: InputDecoration(
-                  hintText: 'N:D',
-                  hintStyle: TextStyle(color: Colors.grey[600]),
-                  isDense: true,
-                  filled: true,
-                  fillColor: Colors.white.withOpacity(0.9),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 6.0, vertical: 4.0),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6.0),
-                   borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                   borderRadius: BorderRadius.circular(6.0),
-                   borderSide: BorderSide(color: Colors.grey[400]!, width: 1.0),
-                ),
-                focusedBorder: OutlineInputBorder(
-                   borderRadius: BorderRadius.circular(6.0),
-                   borderSide:
-                        BorderSide(color: Theme.of(context).primaryColor, width: 1.5),                  ),
-               ),
-               onChanged: (valor) {
-                 Provider.of<RitmoProvider>(context, listen: false)
-                     .atualizarValorFracao(widget.fracao.id, valor);
-               },
-             ),
-           ),
-           const SizedBox(width: 4),
-           IconButton(
-             icon: const Icon(Icons.delete_outline, color: Colors.white70),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-             onPressed: () {
-               _controlador.clear();
-               Provider.of<RitmoProvider>(context, listen: false)
-                   .excluirValorFracao(widget.fracao.id);
-            },
-           ),
-         ],
+        IconButton(
+          icon: const Icon(Icons.delete_outline, size: 20),
+          onPressed: () {
+            _numCtrl.clear();
+            _denCtrl.clear();
+            Provider.of<RitmoProvider>(context, listen: false)
+                .excluirValorFracao(widget.fracao.id);
+          },
         ),
-       
       ],
     );
   }

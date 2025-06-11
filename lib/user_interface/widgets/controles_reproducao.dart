@@ -2,32 +2,27 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/ritmo_provider.dart';
-import '../../models/fracao_model.dart'; // Importar FracaoModel
+import '../../models/fracao_model.dart'; 
 
 class ControlesReproducao extends StatelessWidget {
   const ControlesReproducao({super.key});
 
   Widget _construirBotaoSelecaoFaixa(BuildContext context, FracaoModel fracao, RitmoProvider ritmoProvider) {
-    // Adicione este print para ver se o botão está sendo construído com o estado correto
     print("Construindo botão ${fracao.id}, selecionada: ${fracao.estaSelecionada}, cor: ${fracao.cor}");
 
     bool estaSelecionada = fracao.estaSelecionada;
-
-    // Fator de largura desejado (ex: 0.8 para 80% da largura disponível)
     const double larguraBotaoFactor = 0.5; // Ajuste este valor conforme necessário (0.1 a 1.0)
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),
-      child: LayoutBuilder( // Usar LayoutBuilder para obter as restrições do pai
+      child: LayoutBuilder( 
         builder: (BuildContext context, BoxConstraints constraints) {
-          // constraints.maxWidth será a largura total disponível para o botão
-          // devido ao CrossAxisAlignment.stretch da Column pai.
           final double larguraDoBotao = constraints.maxWidth * larguraBotaoFactor;
 
-          return Center( // Centralizar o botão que agora terá uma largura fixa
+          return Center( 
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                fixedSize: Size(larguraDoBotao, 40), // Largura dinâmica, altura fixa
+                fixedSize: Size(larguraDoBotao, 40), 
                 backgroundColor: estaSelecionada ? fracao.cor.withOpacity(0.8) : Colors.blueGrey[700],
                 foregroundColor: Colors.white,
                 textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -78,7 +73,7 @@ class ControlesReproducao extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.stretch, // Mantém o stretch
+            crossAxisAlignment: CrossAxisAlignment.stretch, 
             children: [
               _construirBotaoSelecaoFaixa(context, fracaoB1, ritmoProvider),
               const SizedBox(height: 12),
