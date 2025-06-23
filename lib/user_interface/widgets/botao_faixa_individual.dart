@@ -19,8 +19,23 @@ class BotaoFaixaIndividual extends StatelessWidget {
     bool estaSelecionada = fracao.estaSelecionada;
     const double larguraBotao = 100.0; 
     const double alturaBotao = 40.0;
+    final identidadeFracao = 'faixa ${fracao.id.toUpperCase()}';
 
-    return ElevatedButton(
+    return Semantics(
+      // Label principal que descreve o botão e seu estado.
+      label: estaSelecionada
+          ? '$identidadeFracao, selecionada'
+          : 'Selecionar $identidadeFracao',
+      // Dica sobre o que a ação faz.
+      hint: 'Toque para alternar a seleção de áudio desta faixa',
+      // Propriedade booleana que informa o estado de seleção.
+      selected: estaSelecionada,
+      // Informa que é um botão.
+      button: true,
+      // Impede que o leitor de tela leia o texto filho ("A", "B", etc.),
+      // pois nosso label já é mais completo.
+      excludeSemantics: true,
+    child: ElevatedButton(
       style: ElevatedButton.styleFrom(
         minimumSize: const Size(larguraBotao, alturaBotao), 
         backgroundColor: estaSelecionada ? fracao.cor.withOpacity(0.8) : Colors.blueGrey[700],
@@ -38,11 +53,11 @@ class BotaoFaixaIndividual extends StatelessWidget {
       onPressed: () {
         //print("Botão Individual ${fracao.id} pressionado!");
         ritmoProvider.toggleSelecaoFaixa(fracao.id);
-        if (!ritmoProvider.estaTocandoGlobalmente) {
-          ritmoProvider.iniciarOuPausarReproducaoGlobal();
-        }
+        // if (!ritmoProvider.estaTocandoGlobalmente) {
+        //   ritmoProvider.iniciarOuPausarReproducaoGlobal();
+        // }
       },
       child: Text(fracao.id.toUpperCase()),
-    );
+    ),);
   }
 }

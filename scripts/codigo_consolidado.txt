@@ -8,12 +8,10 @@ import './user_interface/screens/tela_principal.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Forçar modo paisagem
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
-  // Esconder a barra de status para uma experiência mais imersiva
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   runApp(const MeuApp());
@@ -30,8 +28,8 @@ class MeuApp extends StatelessWidget {
         title: 'Ritmatica',
         theme: ThemeData(
           primarySwatch: Colors.cyan,
-          brightness: Brightness.light, // Ou light, baseado no vídeo
-          scaffoldBackgroundColor: const Color(0xFF54ADFF), // Cor de fundo do vídeo
+          brightness: Brightness.light, 
+          scaffoldBackgroundColor: const Color(0xFF54ADFF), 
         ),
         home: const TelaPrincipal(),
         debugShowCheckedModeBanner: false,
@@ -144,10 +142,8 @@ class FracaoModel {
 [services\ritmo_provider.dart]
 
 // services/ritmo_provider.dart
-
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/fracao_model.dart';
@@ -155,33 +151,24 @@ import '../models/conjunto_ritmo_model.dart';
 import '../utils/cores.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+
 class RitmoProvider with ChangeNotifier {
   late List<FracaoModel> _fracoes;
   List<ConjuntoRitmoModel> _conjuntosSalvos = [];
-
-  // Quando cada fração estiver "ativada", armazenamos aqui o Timer específico:
   final Map<String, Timer> _timersPorFracao = {};
-
-   final Map<String, List<AudioPlayer>> _playerPool = {
+  final Map<String, List<AudioPlayer>> _playerPool = {
     'b1': List.generate(4, (_) => AudioPlayer()),
     'b2': List.generate(4, (_) => AudioPlayer()),
     'b3': List.generate(4, (_) => AudioPlayer()),
   };
   final Map<String, int> _nextPlayerIdx = {'b1': 0, 'b2': 0, 'b3': 0};
-
-  // late AudioPlayer _playerB1;
-  // late AudioPlayer _playerB2;
-  // late AudioPlayer _playerB3;
-  // Map<String, AudioPlayer> _players = {};
-
-  // Usamos bolinhasMostradas para controlar quantas bolinhas já devem ser desenhadas por fração:
   final Map<String, int> _bolinhasMostradas = {};
   Map<String, int> get bolinhasMostradas => _bolinhasMostradas;
+  double _offsetHorizontalScroll = 0.0; 
+  int _subdivisoesPorColunaVisual = 20; 
 
-  double _offsetHorizontalScroll = 0.0; // Mantido para a visualização (scroll em "ticks")
-  int _subdivisoesPorColunaVisual = 20; // Continua controlando quantas subdivisões a coluna gráfica tem
 
-  // Getters públicos
+ 
   List<FracaoModel> get fracoes => _fracoes;
   List<ConjuntoRitmoModel> get conjuntosSalvos => _conjuntosSalvos;
   double get offsetHorizontalScroll => _offsetHorizontalScroll;
@@ -189,30 +176,26 @@ class RitmoProvider with ChangeNotifier {
   bool get estaTocandoGlobalmente => _timersPorFracao.isNotEmpty;
 
 
+
+
   Future<void> _preloadAssets() async {
-  // Para cada fração, aguarda todos os players do pool
   for (var f in _fracoes) {
     final pool = _playerPool[f.id]!;
     await Future.wait(pool.map((p) => p.setAsset('assets/${f.assetSom}')));
   }
 }
 
-
   RitmoProvider() {
-    // Cria as 3 frações iniciais
+   
     _fracoes = [
       FracaoModel(id: 'b1', cor: AppCores.corB1, assetSom: 'sounds/b1_som.mp3'),
       FracaoModel(id: 'b2', cor: AppCores.corB2, assetSom: 'sounds/b2_som.mp3'),
       FracaoModel(id: 'b3', cor: AppCores.corB3, assetSom: 'sounds/b3_som.mp3'),
     ];
 
-   // --- MUDANÇA: Carregar os assets diretamente no pool ---
-    // Removemos a inicialização dos players individuais (_playerB1, etc)
-    // e o mapa _players.
     for (var f in _fracoes) {
       final pool = _playerPool[f.id]!;
       for (var p in pool) {
-        // Não precisamos de 'await' aqui, o carregamento acontece em background.
         p.setAsset('assets/${f.assetSom}');
       }
     }
@@ -225,62 +208,120 @@ class RitmoProvider with ChangeNotifier {
     final player = pool[idx];
     _nextPlayerIdx[id] = (idx + 1) % pool.length;
 
+
     player
       ..seek(Duration.zero)
       ..play();
   }
-  // ------------------------------------------------------------
-  // ATUALIZAÇÕES DE FRAÇÃO (numerador:denominador) e seleção
-  // ------------------------------------------------------------
+ 
 
   void atualizarValorFracao(String id, String valorInputUsuario) {
     final fracao = _fracoes.firstWhere((f) => f.id == id);
-    final partes = valorInputUsuario.split(':');
-    if (valorInputUsuario.isEmpty) {
-      fracao.numerador = null;
-      fracao.denominador = null;
-    } else if (partes.length == 2) {
-      final numTemp = int.tryParse(partes[0]);
-      final denTemp = int.tryParse(partes[1]);
-      if (numTemp != null && denTemp != null && denTemp > 0 && numTemp > 0) {
-        fracao.numerador = numTemp;
-        fracao.denominador = denTemp;
-      } else {
-        fracao.numerador = null;
-        fracao.denominador = null;
-      }
-    } else {
-      fracao.numerador = null;
-      fracao.denominador = null;
-    }
 
-    // Se essa fração estiver tocando mas agora ficou inválida, paramos seu timer
-    if (fracao.estaTocando && (fracao.numerador == null || fracao.denominador == null)) {
-      _stopFracaoTimer(id);
-      fracao.estaTocando = false;
+    if (!estaTocandoGlobalmente && _bolinhasMostradas.containsKey(id)) {
       _bolinhasMostradas.remove(id);
     }
+   
+    final partes = valorInputUsuario.split(':');
 
+    if (partes.isNotEmpty) {
+      final numTemp = int.tryParse(partes[0]);
+      fracao.numerador = (numTemp != null && numTemp > 0) ? numTemp : null;
+    } else {
+      fracao.numerador = null;
+    }
+
+    if (partes.length > 1) {
+      final denTemp = int.tryParse(partes[1]);
+      fracao.denominador = (denTemp != null && denTemp > 0) ? denTemp : null;
+    } else {
+      fracao.denominador = null;
+    }
+    
+    final bool isFractionValid = fracao.numerador != null && fracao.denominador != null;
+    
+    if (!isFractionValid) {
+      fracao.estaSelecionada = false; 
+      if (fracao.estaTocando) {
+        _stopFracaoTimer(id);
+        fracao.estaTocando = false;
+        _bolinhasMostradas.remove(id);
+      }
+    }
+    
     notifyListeners();
   }
+
+  //Métodos Ajustados\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+  void pararFracaoSeTocando(String id) {
+    final fracao = _fracoes.firstWhere((f) => f.id == id);
+
+   
+    if (fracao.estaTocando) {
+      _stopFracaoTimer(id);
+      fracao.estaTocando = false;
+      fracao.estaSelecionada = false; 
+      _bolinhasMostradas.remove(id); 
+      
+     
+      notifyListeners();
+    }
+  }
+
+ 
+  // void atualizarValorFracao(String id, String valorInputUsuario) {
+  //   final fracao = _fracoes.firstWhere((f) => f.id == id);
+
+  //   final partes = valorInputUsuario.split(':');
+
+  //   if (partes.isNotEmpty) {
+  //     final numTemp = int.tryParse(partes[0]);
+  //     fracao.numerador = (numTemp != null && numTemp > 0) ? numTemp : null;
+  //   } else {
+  //     fracao.numerador = null;
+  //   }
+
+  //   if (partes.length > 1) {
+  //     final denTemp = int.tryParse(partes[1]);
+  //     fracao.denominador = (denTemp != null && denTemp > 0) ? denTemp : null;
+  //   } else {
+  //     fracao.denominador = null;
+  //   }
+    
+    
+  //   final bool isFractionValid = fracao.numerador != null && fracao.denominador != null;
+  //   if (!isFractionValid) {
+  //     fracao.estaSelecionada = false; 
+  //   }
+    
+  //   notifyListeners();
+  // }
+  
+
 
   void excluirValorFracao(String id) {
     atualizarValorFracao(id, "");
   }
 
+
   void toggleSelecaoFaixa(String idFaixa) {
     final fracao = _fracoes.firstWhere((f) => f.id == idFaixa);
+    final bool isFractionValid = fracao.numerador != null && fracao.denominador != null;
+
+    if (!fracao.estaSelecionada && !isFractionValid) {
+      return; 
+    }
+    
     fracao.estaSelecionada = !fracao.estaSelecionada;
 
     if (fracao.estaSelecionada) {
-      // Se agora foi marcada e está com numerador/denominador válidos, inicia imediatamente
-      if (fracao.numerador != null && fracao.denominador != null) {
-        fracao.estaTocando = true;
-        _bolinhasMostradas[idFaixa] = 0;
-        _startFracaoTimer(fracao);
-      }
+     
+      fracao.estaTocando = true;
+      _bolinhasMostradas[idFaixa] = 0;
+      _startFracaoTimer(fracao);
     } else {
-      // Caso tenha desmarcado, paramos seu timer
+      
       fracao.estaTocando = false;
       _bolinhasMostradas.remove(idFaixa);
       _stopFracaoTimer(idFaixa);
@@ -289,219 +330,72 @@ class RitmoProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // ------------------------------------------------------------
-  // LÓGICA DE INÍCIO E PARADA PARA CADA FRAÇÃO (timer individual)
-  // ------------------------------------------------------------
 
-  /// Calcula o intervalo em milissegundos a partir de numerador/denominador.
-  /// Exemplo: 1/1 → 1000 ms. 3/3 → 1000 ms. 7/9 → (7/9)*1000 ≃ 777 ms.
   int _calcularIntervaloMs(FracaoModel f) {
-    // Garantimos que numerador/denominador nunca sejam nulos aqui
+   if (f.numerador == null || f.denominador == null || f.denominador == 0) {
+      return 0;
+    }
     final n = f.numerador!;
     final d = f.denominador!;
     final double segundos = n / d;
     return (segundos * 1000).round();
   }
 
-  /// Inicia um Timer.periodic exclusivo para uma fração que está válid
-  // void _startFracaoTimer(FracaoModel f) {
-  //   final String id = f.id;
 
-  //   // Se já tinha um timer ativo, paramos antes
-  //   _stopFracaoTimer(id);
-
-  //   final intervalo = _calcularIntervaloMs(f);
-  //   if (intervalo <= 0) return;
-
-  //   // Cria um novo Timer.periodic para essa fração
-  //   final timer = Timer.periodic(Duration(milliseconds: intervalo), (_) async {
-  //     // A cada disparo:
-  //     // 1) Tocar o som
-  //     final player = _players[id];
-  //     if (player != null) {
-  //       try {
-  //       await player.stop();                    // Garante zero state
-  //       await player.seek(Duration.zero);       // Volta ao início
-  //       await player.play();                    // Toca novamente
-  //     } catch (e) {
-  //       print("Erro ao tocar som para $id: $e");
-  //     }
-  //     }
-  //     // 2) Incrementar contador de bolinhas
-  //     _bolinhasMostradas[id] = (_bolinhasMostradas[id] ?? 0) + 1;
-  //     // 3) Notificar a UI para redesenhar
-  //     notifyListeners();
-  //   });
-
-  //   _timersPorFracao[id] = timer;
-  // }
-
-// void _startFracaoTimer(FracaoModel f) {
-//   final String id = f.id;
-//   _stopFracaoTimer(id);
-
-//   final intervalo = _calcularIntervaloMs(f);
-//   if (intervalo <= 0) return;
-
-//   final timer = Timer.periodic(Duration(milliseconds: intervalo), (_) async {
-//     // 1) Cria um AudioPlayer temporário
-//     final playerTemporario = AudioPlayer();
-//     try {
-//       await playerTemporario.setAsset('assets/${f.assetSom}');
-//       await playerTemporario.seek(Duration.zero);
-//       await playerTemporario.play();
-//     } catch (e) {
-//       print("Erro ao tocar som (player temporário) para $id: $e");
-//     } finally {
-//       // 2) Dispose do player temporário imediatamente após finalizar
-//       playerTemporario.dispose();
-//     }
-
-//     // 3) Incrementa bolinhas e notifica a UI
-//     _bolinhasMostradas[id] = (_bolinhasMostradas[id] ?? 0) + 1;
-//     notifyListeners();
-//   });
-
-//   _timersPorFracao[id] = timer;
-// }
-
-
-// void _startFracaoTimer(FracaoModel f) {
-//   final String id = f.id;
-//   _stopFracaoTimer(id);
-
-//   final intervalo = _calcularIntervaloMs(f);
-//   if (intervalo <= 0) return;
-
-//   final timer = Timer.periodic(Duration(milliseconds: intervalo), (_) {
-//     // 1) Primeiro incrementa a bolinha e notifica a UI.
-//     _bolinhasMostradas[id] = (_bolinhasMostradas[id] ?? 0) + 1;
-//     notifyListeners();
-
-//     // 2) Em seguida, dispara o som (fire-and-forget). 
-//     //    Não estamos aguardando (await) tudo aqui, 
-//     //    apenas garantindo que a bolinha apareça imediatamente.
-//     final playerTemporario = AudioPlayer();
-//     playerTemporario
-//       .setAsset('assets/${f.assetSom}')
-//       .then((_) => playerTemporario.seek(Duration.zero))
-//       .then((_) => playerTemporario.play())
-//       .catchError((e) {
-//         print("Erro ao tocar som (player temporário) para $id: $e");
-//       })
-//       .whenComplete(() {
-//         // Depois de tocar (ou em erro), dispomos o player.
-//         playerTemporario.dispose();
-//       });
-//   });
-
-//   _timersPorFracao[id] = timer;
-// }
-
-//  void _startFracaoTimer(FracaoModel f) {
-//     final String id = f.id;
-//     _stopFracaoTimer(id);
-
-//     final intervalo = _calcularIntervaloMs(f);
-//     if (intervalo <= 0) return;
-
-//     _timersPorFracao[id] = Timer.periodic(Duration(milliseconds: intervalo), (_) {
-//       // 1) Atualiza bolinha e notifica
-//       _bolinhasMostradas[id] = (_bolinhasMostradas[id] ?? 0) + 1;
-//       notifyListeners();
-//       // 2) Toca som reutilizando pool
-//       _tocarSom(id);
-//     });
-//   }
-
- void _startFracaoTimer(FracaoModel f) {
-    final String id = f.id;
-    _stopFracaoTimer(id); // Garante que não haja timers duplicados
-
-    final intervalo = _calcularIntervaloMs(f);
-    if (intervalo <= 0) return;
-
-    // A cada "tick" do timer, fazemos duas coisas:
-    _timersPorFracao[id] = Timer.periodic(Duration(milliseconds: intervalo), (_) {
-      // 1) Atualiza a UI para mostrar a nova bolinha
-      _bolinhasMostradas[id] = (_bolinhasMostradas[id] ?? 0) + 1;
-      notifyListeners();
-      
-      // 2) Toca o som usando o nosso método do pool
-      _tocarSom(id);
-    });
+  int getIntervaloMsPorId(String id) {
+    try {
+      final fracao = _fracoes.firstWhere((f) => f.id == id);
+      return _calcularIntervaloMs(fracao);
+    } catch (e) {
+      return 0;
+    }
   }
 
 
-  /// Para e remove o Timer da fração de id `id`
-  // void _stopFracaoTimer(String id) {
-  //   final existing = _timersPorFracao[id];
-  //   if (existing != null) {
-  //     existing.cancel();
-  //     _timersPorFracao.remove(id);
-  //   }
-  // }
+ void _startFracaoTimer(FracaoModel f) {
+  final String id = f.id;
+  _stopFracaoTimer(id);
+
+  final intervalo = _calcularIntervaloMs(f);
+  if (intervalo <= 0) return;
+
+  _bolinhasMostradas[id] = 1;
+  
+  _tocarSom(id);
+  notifyListeners();
+
+  _timersPorFracao[id] = Timer.periodic(Duration(milliseconds: intervalo), (_) {
+
+  _bolinhasMostradas[id] = (_bolinhasMostradas[id] ?? 1) + 1;
+    
+    _tocarSom(id);
+    notifyListeners();
+  });
+}
+
+
 
    void _stopFracaoTimer(String id) {
     final t = _timersPorFracao.remove(id);
     t?.cancel();
   }
 
-  /// Para todos os timers de todas as frações
-  // void _stopAllFracoes() {
-  //   for (final t in _timersPorFracao.values) {
-  //     t.cancel();
-  //   }
-  //   _timersPorFracao.clear();
-  // }
 
    void _stopAllFracoes() {
-    _timersPorFracao.values.forEach((t) => t.cancel());
+    for (var t in _timersPorFracao.values) {
+      t.cancel();
+    }
     _timersPorFracao.clear();
   }
 
-  // ------------------------------------------------------------
-  // MÉTODOS PÚBLICOS PARA “PLAY / STOP GLOBAL”
-  // ------------------------------------------------------------
 
-  /// Se alguma fração estiver selecionada e válida, inicia o respectivo timer.
-  /// Se já estaba tocando globalmente, para tudo.
-  // void iniciarOuPausarReproducaoGlobal() {
-  //   if (estaTocandoGlobalmente) {
-  //     // Para tudo:
-  //     _timersPorFracao.keys.toList().forEach(_stopFracaoTimer);
-  //     // Marca todas as frações como não tocando
-  //     for (var f in _fracoes) {
-  //       f.estaTocando = false;
-  //     }
-  //     // _bolinhasMostradas.clear();
-  //     notifyListeners();
-  //     return;
-  //   }
-
-  //   // Se não está tocando, tentamos iniciar cada fração que estiver selecionada e válida
-  //   bool algumaIniciada = false;
-  //   for (var f in _fracoes) {
-  //     if (f.estaSelecionada && f.numerador != null && f.denominador != null) {
-  //       f.estaTocando = true;
-  //       _bolinhasMostradas[f.id] = 0;
-  //       _startFracaoTimer(f);
-  //       algumaIniciada = true;
-  //     }
-  //   }
-
-  //   if (!algumaIniciada) {
-  //     // Se nada tinha sido selecionado ou todos inválidos, apenas notifica para atualizar UI
-  //     notifyListeners();
-  //   } else {
-  //     notifyListeners();
-  //   }
-  // }
 
    void iniciarOuPausarReproducaoGlobal() {
     if (estaTocandoGlobalmente) {
       _stopAllFracoes();
-      for (var f in _fracoes) f.estaTocando = false;
+      for (var f in _fracoes) {
+        f.estaTocando = false;
+      }
       notifyListeners();
       return;
     }
@@ -518,53 +412,94 @@ class RitmoProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // ------------------------------------------------------------
-  // CONTROLES DE LARGURA/COLUNAS E SCROLL
-  // ------------------------------------------------------------
 
   void atualizarLarguraColuna(int novaLargura) {
     _subdivisoesPorColunaVisual = novaLargura.clamp(4, 200);
     notifyListeners();
   }
 
+
   void definirOffsetHorizontalScroll(double novoOffsetTicks) {
     _offsetHorizontalScroll = novoOffsetTicks;
     notifyListeners();
   }
 
-  // ------------------------------------------------------------
-  // SALVAR / CARREGAR RITMOS
-  // ------------------------------------------------------------
 
-  Future<void> salvarConjuntoAtual(String nome) async {
-    if (nome.isEmpty) return;
-    bool temValores = _fracoes.any((f) => f.numerador != null && f.denominador != null);
-    if (!temValores) return;
 
+  void avancarScroll({int colunas = 10}) {
+    _offsetHorizontalScroll += (colunas * _subdivisoesPorColunaVisual);
+    notifyListeners();
+  }
+
+
+ 
+  void retrocederScroll({int colunas = 10}) {
+    _offsetHorizontalScroll -= (colunas * _subdivisoesPorColunaVisual);
+    if (_offsetHorizontalScroll < 0) {
+      _offsetHorizontalScroll = 0;
+    }
+    notifyListeners();
+  }
+
+
+
+  Future<bool> salvarConjuntoAtual() async {
+    // 1. Primeiro, filtramos APENAS as frações válidas para criar o nome do conjunto.
+    final List<FracaoModel> fracoesValidas = _fracoes
+        .where((f) => f.numerador != null && f.denominador != null)
+        .toList();
+
+    // Se não houver nenhuma fração válida, não há o que salvar.
+    if (fracoesValidas.isEmpty) {
+      print("Nenhuma fração válida para salvar.");
+      // Opcional: Mostrar uma mensagem para o usuário
+      // ScaffoldMessenger.of(context).showSnackBar(...)
+      return false;
+    }
+
+    // 2. Criamos o nome usando apenas as frações válidas.
+    final nomeAutomatico = fracoesValidas
+        .map((f) => f.valorExibicao)
+        .where((v) => v.isNotEmpty)
+        .join(' | ');
+
+    // =======================================================
+    // AQUI ESTÁ A MUDANÇA PRINCIPAL
+    // =======================================================
     final novoConjunto = ConjuntoRitmoModel(
-      nome: nome,
-      fracoes: _fracoes
-          .map((f) => FracaoModel(
-                id: f.id,
-                numerador: f.numerador,
-                denominador: f.denominador,
-                cor: f.cor,
-                assetSom: f.assetSom,
-              ))
-          .toList(),
+      nome: nomeAutomatico,
+      // 3. Mapeamos a lista original `_fracoes`, mas limpando as inválidas.
+      fracoes: _fracoes.map((f) {
+        // Verificamos se a fração na tela principal é válida.
+        final bool isFractionValid = f.numerador != null && f.denominador != null;
+
+        // Criamos uma NOVA FracaoModel para ser salva.
+        return FracaoModel(
+          id: f.id,
+          // Se for válida, usamos seus valores. Se não, forçamos ambos para null.
+          numerador: isFractionValid ? f.numerador : null,
+          denominador: isFractionValid ? f.denominador : null,
+          cor: f.cor,
+          assetSom: f.assetSom,
+        );
+      }).toList(),
     );
 
-    _conjuntosSalvos.removeWhere((c) => c.nome == nome);
+    // O resto do método continua igual
+    _conjuntosSalvos.removeWhere((c) => c.nome == nomeAutomatico);
     _conjuntosSalvos.add(novoConjunto);
     await _persistirConjuntosSalvos();
     notifyListeners();
+     return true;
   }
+
 
   Future<void> _persistirConjuntosSalvos() async {
     final prefs = await SharedPreferences.getInstance();
     List<String> jsons = _conjuntosSalvos.map((c) => jsonEncode(c.toJson())).toList();
     await prefs.setStringList('conjuntosRitmoSalvos', jsons);
   }
+
 
   Future<void> carregarConjuntosSalvos() async {
     final prefs = await SharedPreferences.getInstance();
@@ -576,22 +511,40 @@ class RitmoProvider with ChangeNotifier {
     }
   }
 
-  void aplicarConjuntoSalvo(ConjuntoRitmoModel conjunto) {
-    // Para tudo antes de carregar
-    iniciarOuPausarReproducaoGlobal(); // isso para todos
-    for (int i = 0; i < _fracoes.length; i++) {
-      if (i < conjunto.fracoes.length) {
-        _fracoes[i].numerador = conjunto.fracoes[i].numerador;
-        _fracoes[i].denominador = conjunto.fracoes[i].denominador;
-      } else {
-        _fracoes[i].numerador = null;
-        _fracoes[i].denominador = null;
+
+   void aplicarConjuntoSalvo(ConjuntoRitmoModel conjunto) {
+   
+    if (estaTocandoGlobalmente) {
+      _stopAllFracoes();
+      _bolinhasMostradas.clear();
+      for (var f in _fracoes) {
+        f.estaTocando = false;
       }
-      _fracoes[i].estaSelecionada = false;
-      _fracoes[i].estaTocando = false;
     }
+
+   
+    for (int i = 0; i < _fracoes.length; i++) {
+      final fracaoAtual = _fracoes[i];
+      
+      if (i < conjunto.fracoes.length) {
+        final fracaoSalva = conjunto.fracoes[i];
+        
+       
+        fracaoAtual.numerador = fracaoSalva.numerador;
+        fracaoAtual.denominador = fracaoSalva.denominador;
+
+      } else {
+        fracaoAtual.numerador = null;
+        fracaoAtual.denominador = null;
+      }
+      
+      fracaoAtual.estaSelecionada = false;
+      fracaoAtual.estaTocando = false;
+    }
+    
     notifyListeners();
   }
+
 
   void excluirConjuntoSalvo(String nome) {
     _conjuntosSalvos.removeWhere((c) => c.nome == nome);
@@ -599,10 +552,10 @@ class RitmoProvider with ChangeNotifier {
     notifyListeners();
   }
 
+
   @override
   void dispose() {
     _stopAllFracoes();
-    // limpa pool de players
     for (var pool in _playerPool.values) {
       for (var p in pool) {
         p.dispose();
@@ -613,17 +566,403 @@ class RitmoProvider with ChangeNotifier {
 }
 
 ----------------
+[user_interface\screens\about.dart]
+
+// user_interface/screens/about_screen.dart
+
+import 'package:flutter/material.dart';
+
+class AboutScreen extends StatelessWidget {
+  const AboutScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Sobre"),
+        backgroundColor: Colors.blue,
+        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Container(
+        color: const Color.fromRGBO(220, 247, 255, 1.0),
+        child: ListView(
+          padding: const EdgeInsets.all(16.0),
+          children: [
+            _buildInfoCard(context),
+            const SizedBox(height: 20),
+
+            _buildSupportCard(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(BuildContext context) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Center(
+              child: Text(
+                'Ritmática',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blueAccent,
+                ),
+              ),
+            ),
+            const Center(
+              child: Text(
+                'Versão 1.0',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.black54,
+                ),
+              ),
+            ),
+            const Divider(height: 30),
+            _buildSectionTitle('O que é o App?'),
+            const Text(
+              'O Ritmática é uma ferramenta educacional inclusiva que transforma conceitos de ritmo e frações em uma experiência visual e sonora, facilitando o aprendizado através de animações e sons.',
+              style: TextStyle(fontSize: 16, height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            _buildSectionTitle('Principais Funcionalidades'),
+            _buildFeatureItem(
+              Icons.edit,
+              'Configuração de Frações:',
+              'Digite frações como 1/2, 3/4 ou 5/3 nas faixas B1, B2 e B3 para definir os padrões rítmicos de cada linha.',
+            ),
+            _buildFeatureItem(
+              Icons.play_circle_outline,
+              'Reprodução com Som e Animação:',
+              'Toque no botão "Play" para iniciar a reprodução. O app irá exibir a animação das bolinhas e tocar sons correspondentes a cada fração configurada.',
+            ),
+            _buildFeatureItem(
+              Icons.tune,
+              'Ajuste de Visualização:',
+              'Use o controle de largura da coluna para aumentar ou diminuir a densidade das bolinhas no mosaico e explore o slider horizontal para navegar pelas colunas visíveis.',
+            ),
+            _buildFeatureItem(
+              Icons.save_alt,
+              'Salvar e Carregar Ritmos:',
+              'Salve suas configurações de ritmo e recupere-as quando quiser através da tela de Ritmos Salvos.',
+            ),
+            _buildFeatureItem(
+              Icons.accessibility_new,
+              'Acessibilidade:',
+              'O Ritmática é compatível com TalkBack, oferecendo orientação inicial por voz ao abrir o app e permitindo navegação por leitores de tela para estudantes com deficiência visual.',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSupportCard() {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          children: [
+            _buildSectionTitle('Apoio Institucional'),
+            const SizedBox(height: 15),
+            Semantics(
+              label:
+                  'Logotipos dos apoiadores: IFSP, CNPQ e RUMO à Educação Matemática Inclusiva',
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    'assets/image/IFSP_Logo.png',
+                    height: 60,
+                    fit: BoxFit.contain,
+                  ),
+                  Image.asset(
+                    'assets/image/CNPQ_Logo.png',
+                    height: 60,
+                    fit: BoxFit.contain,
+                  ),
+                  Image.asset(
+                    'assets/image/RUMO_Logo.png',
+                    height: 60,
+                    fit: BoxFit.contain,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureItem(IconData icon, String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.blue, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: Colors.black87,
+                  height: 1.3,
+                ),
+                children: [
+                  TextSpan(
+                    text: title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  TextSpan(text: ' $description'),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+----------------
+[user_interface\screens\agradecimentos.dart]
+
+import 'package:flutter/material.dart';
+
+class ThankYouScreen extends StatelessWidget {
+  const ThankYouScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Agradecimentos"),
+        backgroundColor: Colors.blue, 
+         titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20), 
+        iconTheme: const IconThemeData(color: Colors.white), 
+      ),
+      body: Container(
+
+        padding: const EdgeInsets.all(16.0),
+         color: const Color.fromRGBO(220, 247, 255, 1.0),
+        child: Center(
+          child: Card(
+            elevation: 6,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
+            color: Colors.blueAccent,
+            child: const SizedBox(
+              height: 300,
+              child: Scrollbar(
+                thumbVisibility: false,
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.all(20.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      
+                      Text(
+                        "Versão Original",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        "Lulu Healy\nNathalie Sinclair\nLulu Healy\nRonaldo Carrilho",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      Text(
+                        "Versão Atualizada (2025)",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        "Luis Fernando Pacheco Pereira\n"
+                        "Solange Hassan Ahmad Ali Fernandes\n"
+                        "Suanne Almeida Barbosa",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+----------------
+[user_interface\screens\instrucoes.dart]
+
+import 'package:flutter/material.dart';
+
+class UsageInstructionsScreen extends StatelessWidget {
+  const UsageInstructionsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Instruções de Uso'),
+         backgroundColor: Colors.blue, 
+         titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Container(
+        padding: const EdgeInsets.all(16.0),
+         color: const Color.fromRGBO(220, 247, 255, 1.0),
+        child: ListView(
+          children: [
+            _buildInstructionItem(
+              title: '1. Definir Frações',
+              description:
+                  'Na tela principal, você encontrará três faixas (B1, B2 e B3). Em cada uma delas, insira uma fração usando os campos de numerador (N) e denominador (D), por exemplo: 3/4, 1/2, etc. Esses valores controlarão o ritmo e a quantidade de bolinhas geradas na animação.',
+            ),
+            _buildInstructionItem(
+              title: '2. Ativar ou Desativar Faixas',
+              description:
+                  'Após definir os valores, clique no botão com o nome da faixa (B1, B2 ou B3) para ativar ou desativar aquela faixa na reprodução. As faixas ativas serão exibidas com uma cor mais destacada.',
+            ),
+            _buildInstructionItem(
+              title: '3. Iniciar ou Parar a Reprodução',
+              description:
+                  'Pressione o botão de "Play" para iniciar a animação das bolinhas e a reprodução dos sons. Para interromper a reprodução, pressione o botão de "Stop".',
+            ),
+            _buildInstructionItem(
+              title: '4. Navegar por colunas',
+              description:
+                  'Utilize o slider horizontal ou os botões de seta para avançar ou retroceder as colunas, ajustando a posição da visualização das bolinhas no espaço da tela.',
+            ),
+            _buildInstructionItem(
+              title: '5. Ajustar a Largura da Coluna',
+              description:
+                  'No menu lateral, você pode usar o slider "Largura da Coluna" para aumentar ou diminuir a quantidade de subdivisões visíveis por coluna, alterando assim o espaçamento e a densidade das bolinhas na coluna.',
+            ),
+            _buildInstructionItem(
+              title: '6. Salvar um Ritmo',
+              description:
+                  'Para salvar um ritmo que você criou, abra o menu lateral e clique em "Salvar Ritmo Atual". O sistema irá armazenar o conjunto de frações e suas configurações atuais.',
+            ),
+            _buildInstructionItem(
+              title: '7. Carregar um Ritmo Salvo',
+              description:
+                  'No menu lateral, selecione "Ver Ritmos Salvos". Você verá uma lista dos ritmos que já foram salvos. Clique em um deles para aplicar os valores e carregá-lo na tela principal.',
+            ),
+            _buildInstructionItem(
+              title: '8. Excluir um Ritmo Salvo',
+              description:
+                  'Na tela de ritmos salvos, utilize o ícone de lixeira ao lado de um ritmo para excluí-lo permanentemente.',
+            ),
+            _buildInstructionItem(
+              title: '9. Limpar Valores de uma Faixa',
+              description:
+                  'Para remover os valores de uma fração (numerador e denominador), clique no ícone de lixeira ao lado dos campos de entrada da faixa correspondente.',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInstructionItem({required String title, required String description}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: Colors.blueAccent,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          description,
+          textAlign: TextAlign.justify,
+          style: const TextStyle(
+            fontSize: 16,
+            color: Colors.black87,
+          ),
+        ),
+        const Divider(
+          thickness: 1,
+          height: 20,
+        ),
+      ],
+    );
+  }
+}
+
+----------------
 [user_interface\screens\tela_principal.dart]
 
 // user_interface/screens/tela_principal.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import '../../services/ritmo_provider.dart';
 import '../../user_interface/widgets/faixa_input_fracao.dart'; // Contém LinhaInputFracao (pública)
 import '../../user_interface/widgets/botao_faixa_individual.dart'; // Widget do botão criado
 import '../../user_interface/widgets/visualizador_ritmo.dart';
 import '../../user_interface/widgets/side_menu.dart'; // Widget do menu lateral
+import 'dart:math';
+import 'package:flutter/foundation.dart'; 
+// import 'package:flutter_tts/flutter_tts.dart';
 
 // user_interface/screens/tela_principal.dart
 // ... (imports existentes)
@@ -638,70 +977,187 @@ class TelaPrincipal extends StatefulWidget {
 class _TelaPrincipalState extends State<TelaPrincipal> {
   final TextEditingController _controladorNomeSalvar = TextEditingController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  // REMOVIDO: _visualizadorKey (não mais usado para calcular maxScrollOffset dessa forma)
+  // late FlutterTts _flutterTts;
 
-  void _mostrarDialogoSalvar() {
-    _controladorNomeSalvar.clear();
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Salvar Ritmo'),
-            content: TextField(
-              controller: _controladorNomeSalvar,
-              decoration: const InputDecoration(hintText: "Nome do ritmo"),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancelar'),
-              ),
-              TextButton(
-                onPressed: () {
-                  if (_controladorNomeSalvar.text.isNotEmpty) {
-                    Provider.of<RitmoProvider>(
-                      context,
-                      listen: false,
-                    ).salvarConjuntoAtual(_controladorNomeSalvar.text);
-                  }
-                  Navigator.pop(context);
-                },
-                child: const Text('Salvar'),
-              ),
-            ],
-          ),
-    );
+  @override
+  void initState() {
+     super.initState();
+    
+    // PASSO 2: ADICIONE A CONDIÇÃO AQUI
+    if (!kIsWeb) {
+      // O código abaixo só será executado se NÃO for a plataforma web.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _mostrarDialogoOrientacao(context);
+      });
+    }
   }
+
+   // dentro de user_interface/screens/tela_principal.dart
+// na classe _TelaPrincipalState
+
+// Future<void> _mostrarDialogoOrientacao(BuildContext context) async {
+//   // 1. Construa a string completa que o TalkBack deve ler.
+//   //    Isso une o título, o conteúdo e a ação em uma única mensagem coesa.
+//   const String titulo = 'Aviso: Orientação do Dispositivo.';
+//   const String conteudo =
+//       'Antes de utilizar o aplicativo, posicione o celular em sua mão, em modo paisagem, girando no sentido anti-horário.';
+//   const String acao = 'Toque no botão OK para fechar este aviso.';
+  
+//   // Junta tudo em uma única string.
+//   final String fullSemanticLabel = '$titulo $conteudo $acao';
+
+//   return showDialog<void>(
+//     context: context,
+//     barrierDismissible: false,
+//     builder: (BuildContext dialogContext) {
+//       // 2. Passe a string completa para a propriedade `semanticLabel`.
+//       return AlertDialog(
+//         semanticLabel: fullSemanticLabel,
+
+//         // O conteúdo visual do diálogo permanece o mesmo.
+//         title: const Text('Orientação do Dispositivo'),
+//         content: const SingleChildScrollView(
+//           child: Text(
+//             // Reutilizamos a constante para manter a consistência.
+//             conteudo,
+//           ),
+//         ),
+//         actions: <Widget>[
+//           TextButton(
+//             child: const Text('OK'),
+//             onPressed: () {
+//               Navigator.of(dialogContext).pop();
+//             },
+//           ),
+//         ],
+//       );
+//     },
+//   );
+// }
+
+Future<void> _mostrarDialogoOrientacao(BuildContext context) async {
+  const String titulo = 'Aviso: Orientação do Dispositivo.';
+  const String conteudo =
+      'Antes de utilizar o aplicativo, posicione o celular na sua mão, em modo paisagem, girando no sentido anti-horário.';
+  const String acao = 'Toque no botão OK para fechar este aviso.';
+  
+  final String fullSemanticLabel = '$titulo $conteudo $acao';
+
+  return showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext dialogContext) {
+      return AlertDialog(
+        semanticLabel: fullSemanticLabel,
+
+        // =======================================================
+        // MUDANÇAS NO VISUAL
+        // =======================================================
+
+        // Adiciona um arredondamento mais agradável
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15.0),
+        ),
+
+        // 1. Centraliza o título
+        title: const Text(
+          'Orientação do Dispositivo',
+          textAlign: TextAlign.center, 
+        ),
+
+        content: SingleChildScrollView(
+          // 2. Centraliza o texto do conteúdo
+          child: Text(
+            conteudo,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16), // Ajuste de fonte para melhor leitura
+          ),
+        ),
+
+        // 3. Centraliza a área dos botões
+        actionsAlignment: MainAxisAlignment.center,
+
+        actions: <Widget>[
+          // 4. Troca TextButton por ElevatedButton
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 10),
+              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+
+shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8.0)),
+
+              
+            ),
+            child: const Text('OK'),
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+            },
+          ),
+        ],
+      );
+    },
+  );
+}
 
   @override
   Widget build(BuildContext context) {
     final ritmoProvider = Provider.of<RitmoProvider>(context);
+     
 
-    // Slider de scroll horizontal:
-    // O scroll é em "ticks". Definimos um número máximo de colunas para o slider.
-    const int maxColunasScrollSlider =
-        100; // Ex: permite scrollar até 100 colunas
-    final double maxScrollOffsetTicks =
-        ritmoProvider.subdivisoesPorColunaVisual > 0
-            ? (maxColunasScrollSlider *
-                    ritmoProvider.subdivisoesPorColunaVisual)
-                .toDouble()
-            : 1.0; // Evita divisão por zero se subdivisoesPorColunaVisual for 0 inicialmente
+    const int maxColunasIniciaisSlider = 100;
+    final double initialMaxTicks =
+        (maxColunasIniciaisSlider * ritmoProvider.subdivisoesPorColunaVisual)
+            .toDouble();
 
-    double currentSliderValue = ritmoProvider.offsetHorizontalScroll.clamp(
-      0.0,
-      maxScrollOffsetTicks,
-    );
+    // 2. Obtenha o valor atual do scroll do nosso estado (provider).
+    final double currentOffset = ritmoProvider.offsetHorizontalScroll;
 
-    // Se o valor do provider estiver fora do range do slider (ex: negativo), ajusta o valor do slider.
-    // O provider pode ter offset negativo se o slider permitir no futuro, mas por agora o slider é 0-max.
-    if (ritmoProvider.offsetHorizontalScroll < 0) currentSliderValue = 0;
+    // 3. Calcule o 'max' do slider. Ele deve ser o valor inicial ou o valor atual, o que for MAIOR.
+    //    Isso garante que o trilho do slider sempre cresça para acomodar o valor.
+    final double sliderMaximum = max(initialMaxTicks, currentOffset);
+
+    // 4. O valor do slider é o valor atual do scroll.
+    //    Usamos .clamp() como uma segurança final para garantir que ele NUNCA ultrapasse o 'max'.
+    final double sliderValue = currentOffset.clamp(0.0, sliderMaximum);
 
     return Scaffold(
       key: _scaffoldKey,
-      drawer: SideMenu(onSalvarRitmo: _mostrarDialogoSalvar),
+      resizeToAvoidBottomInset: false,
+      drawer: SideMenu(
+        onSalvarRitmo: () async {
+          // Chama diretamente o método de salvar do provider
+        final bool foiSalvo = await  Provider.of<RitmoProvider>(
+            context,
+            listen: false,
+          ).salvarConjuntoAtual();
+
+         if (!context.mounted) return;
+         if (foiSalvo) {
+          // Mostra a mensagem de sucesso
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Ritmo salvo com sucesso!'),
+              duration: Duration(seconds: 2),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          // Mostra uma mensagem de aviso/informação
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Nenhuma fração válida para salvar.'),
+              duration: Duration(seconds: 2),
+              backgroundColor: Colors.redAccent, // Cor diferente para aviso
+            ),
+          );
+        }
+      },
+    ),
+       
       body: Padding(
-        padding: const EdgeInsets.all(8.0),
+    
+                padding: const EdgeInsets.all(1.0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -709,12 +1165,16 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                IconButton(
+                Semantics( 
+                   label: 'Abrir menu de navegação',
+                      button: true,
+                 child: IconButton(
                   icon: const Icon(Icons.menu),
                   iconSize: 30,
                   tooltip: 'Abrir menu',
                   onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                ),
+                ),),
+                
                 const Spacer(),
               ],
             ),
@@ -726,63 +1186,103 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
               child: Column(
                 children: [
                   Expanded(
-                    flex: 3,
-                    child:
-                        VisualizadorRitmo(), // Não precisa mais da key para calcular offset
+                    flex: 2,
+                    child: VisualizadorRitmo(
+                      estaTocando: ritmoProvider.estaTocandoGlobalmente,
+                    ), // Não precisa mais da key para calcular offset
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 5),
 
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       // botão de play/stop
-                      IconButton(
-                        icon: Icon(
-                          ritmoProvider.estaTocandoGlobalmente
-                              ? Icons.stop_circle_outlined
-                              : Icons.play_circle_outline,
+                      Semantics(
+                        label:
+                            ritmoProvider.estaTocandoGlobalmente
+                                ? 'Botão Stop para parar a reprodução'
+                                : 'Botão Play para iniciar a reprodução',
+                        hint:
+                            ritmoProvider.estaTocandoGlobalmente
+                                ? 'Interrompe a reprodução global do ritmo'
+                                : 'Inicia a reprodução global do ritmo',
+                        button: true,
+                        excludeSemantics: true,
+                        child: IconButton(
+                          icon: Icon(
+                            ritmoProvider.estaTocandoGlobalmente
+                                ? Icons.stop_circle_outlined
+                                : Icons.play_circle_outline,
+                          ),
+                          iconSize: 50,
+                          color:
+                              ritmoProvider.estaTocandoGlobalmente
+                                  ? Colors.redAccent.shade200
+                                  : Colors.white,
+                          tooltip:
+                              ritmoProvider.estaTocandoGlobalmente
+                                  ? 'Parar'
+                                  : 'Tocar',
+                          onPressed: () {
+                            ritmoProvider.iniciarOuPausarReproducaoGlobal();
+                          },
                         ),
-                        iconSize: 48,
-                        color:
-                            ritmoProvider.estaTocandoGlobalmente
-                                ? Colors.redAccent.shade200
-                                : Colors.greenAccent.shade400,
-                        tooltip:
-                            ritmoProvider.estaTocandoGlobalmente
-                                ? 'Parar'
-                                : 'Tocar',
-                        onPressed: () {
-                          ritmoProvider.iniciarOuPausarReproducaoGlobal();
-                        },
                       ),
 
                       const SizedBox(width: 12),
+                      Semantics(
+                        label: 'Botão para retroceder 10 colunas na tela de animação do ritmo',
+                        button: true,
+                        excludeSemantics: true,
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back_ios),
+                          tooltip: 'Retroceder',
+                          onPressed: () {
+                            // Você pode ajustar o número de colunas a retroceder.
+                            ritmoProvider.retrocederScroll(colunas: 10);
+                          },
+                        ),
+                      ),
 
                       // slider ocupando o resto do espaço (ou largura fixa, se preferir)
                       // if (maxScrollOffsetTicks > 0.001)
                       Expanded(
                         child: Slider(
-                          value: currentSliderValue,
+                          value: sliderValue, // <- Usa a variável segura
                           min: 0.0,
-                          max: maxScrollOffsetTicks,
-                          divisions: (maxScrollOffsetTicks /
-                                  (ritmoProvider.subdivisoesPorColunaVisual > 0
-                                      ? ritmoProvider.subdivisoesPorColunaVisual
-                                      : 1))
-                              .round()
-                              .clamp(1, 10000),
+                          max: sliderMaximum, // <- Usa a variável segura
+                          divisions:
+                              (sliderMaximum > 0)
+                                  ? (sliderMaximum /
+                                          (ritmoProvider
+                                                      .subdivisoesPorColunaVisual >
+                                                  0
+                                              ? ritmoProvider
+                                                  .subdivisoesPorColunaVisual
+                                              : 1))
+                                      .round()
+                                      .clamp(1, 100000)
+                                  : 1,
                           label:
-                              ritmoProvider.subdivisoesPorColunaVisual > 0
-                                  ? "Col: ${(currentSliderValue / ritmoProvider.subdivisoesPorColunaVisual).floor()}"
-                                  : "Pos: ${currentSliderValue.round()}",
+                              "Coluna: ${(currentOffset / ritmoProvider.subdivisoesPorColunaVisual).floor()}",
                           onChanged: (double value) {
                             ritmoProvider.definirOffsetHorizontalScroll(value);
                           },
                         ),
                       ),
-                      // else
-                      //   // mantém o espaço ocupado quando não há slider
-                      //   const SizedBox(height: 48),
+                      Semantics(
+                        label: 'Botão para avançar 10 colunas na tela de animação do ritmo',
+                        button: true,
+                        excludeSemantics: true,
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_forward_ios),
+                          tooltip: 'Avançar',
+                          onPressed: () {
+                            // Você pode ajustar o número de colunas a retroceder.
+                            ritmoProvider.avancarScroll(colunas: 10);
+                          },
+                        ),
+                      ),
                     ],
                   ),
 
@@ -794,16 +1294,37 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children:
                             ritmoProvider.fracoes.map((fracao) {
-                              return Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  // esta linha já inclui o TextField e o ícone de lixeira
-                                  LinhaInputFracao(fracao: fracao),
-                                  const SizedBox(height: 4),
-                                  // agora o botão "B1/B2/B3" fica abaixo do input
-                                  BotaoFaixaIndividual(fracao: fracao),
-                                ],
-                              );
+
+                              return FocusTraversalGroup(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 2. Semantics com sortKey: Define a ordem de visita.
+          // Itens com 'sortKey' menor são visitados primeiro.
+          Semantics(
+            sortKey: const OrdinalSortKey(1.0), // Ordem 1: A linha de input
+            child: LinhaInputFracao(fracao: fracao),
+          ),
+          const SizedBox(height: 1), // Widget visual, sem semântica
+
+          Semantics(
+            sortKey: const OrdinalSortKey(2.0), // Ordem 2: O botão de faixa
+            child: BotaoFaixaIndividual(fracao: fracao),
+          ),
+        ],
+      ),
+    );
+                              // return Column(
+                              //     mainAxisSize: MainAxisSize.min,
+                              //     children: [
+                              //       // É crucial que LinhaInputFracao tenha sua própria semântica bem definida.
+                              //       LinhaInputFracao(fracao: fracao),
+                              //       const SizedBox(height: 1),
+                              //       // E que BotaoFaixaIndividual também tenha.
+                              //       BotaoFaixaIndividual(fracao: fracao),
+                              //     ],
+                                
+                              // );
                             }).toList(),
                       ),
                     ),
@@ -814,11 +1335,15 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
           ],
         ),
       ),
+
     );
+  
+    
   }
 
   @override
   void dispose() {
+   
     _controladorNomeSalvar.dispose();
     super.dispose();
   }
@@ -832,11 +1357,11 @@ import 'package:provider/provider.dart';
 import '../../services/ritmo_provider.dart';
 
 class TelaRitmosSalvos extends StatelessWidget {
-  const TelaRitmosSalvos({super.key});
+  const TelaRitmosSalvos({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final ritmoProvider = Provider.of<RitmoProvider>(context);
+    final ritmoProvider = Provider.of<RitmoProvider>(context, listen: false);
 
     return Scaffold(
       appBar: AppBar(
@@ -845,55 +1370,197 @@ class TelaRitmosSalvos extends StatelessWidget {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
+        backgroundColor: Colors.blue,
+        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: ritmoProvider.conjuntosSalvos.isEmpty
-          ? const Center(child: Text('Nenhum ritmo salvo ainda.'))
-          : ListView.builder(
-              itemCount: ritmoProvider.conjuntosSalvos.length,
-              itemBuilder: (context, index) {
-                final conjunto = ritmoProvider.conjuntosSalvos[index];
-                return ListTile(
-                  title: Text(conjunto.nome),
-                  subtitle: Text(conjunto.fracoes.map((f) => f.valorExibicao).where((v) => v.isNotEmpty).join(' | ')),
-                  onTap: () {
-                    ritmoProvider.aplicarConjuntoSalvo(conjunto);
-                    Navigator.pop(context); // Volta para a tela principal
-                  },
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete),
-                    onPressed: () {
-                       showDialog(
-                        context: context,
-                        builder: (BuildContext ctx) {
-                          return AlertDialog(
-                            title: const Text('Confirmar Exclusão'),
-                            content: Text('Tem certeza que deseja excluir o ritmo "${conjunto.nome}"?'),
-                            actions: <Widget>[
-                              TextButton(
-                                child: const Text('Cancelar'),
-                                onPressed: () {
-                                  Navigator.of(ctx).pop();
-                                },
+      body:
+          ritmoProvider.conjuntosSalvos.isEmpty
+              ? const Center(child: Text('Nenhum Ritmo salvo ainda.'))
+              : ListView.builder(
+                itemCount: ritmoProvider.conjuntosSalvos.length,
+                itemBuilder: (context, index) {
+                  final conjunto = ritmoProvider.conjuntosSalvos[index];
+                  //final numero = index + 1;
+                  final listaFracoes =
+                      conjunto.fracoes
+                          .where((f) => f.valorExibicao.isNotEmpty)
+                          .map((f) => f.valorExibicao.replaceAll(':', '/'))
+                          .toList();
+
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20.0,
+                      vertical: 5.0,
+                    ),
+                    child: Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(width: 12),
+
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Frações listadas em sequência
+                                  Text(
+                                    listaFracoes.join('  |  '),
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              TextButton(
-                                child: const Text('Excluir', style: TextStyle(color: Colors.red)),
-                                onPressed: () {
-                                  ritmoProvider.excluirConjuntoSalvo(conjunto.nome);
-                                  Navigator.of(ctx).pop();
-                                },
-                              ),
-                            ],
-                          );
-                        },
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
+                            ),
+                            // Botões lado a lado
+                            Row(
+                              children: [
+                                Semantics(
+                                  label:
+                                      'Aplicar o conjunto de ritmo selecionado e voltar para a tela principal.',
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      ritmoProvider.aplicarConjuntoSalvo(
+                                        conjunto,
+                                      );
+                                    },
+
+                                    child: const Text('Aplicar'),
+                                  ),
+                                ),
+
+                                const SizedBox(width: 8),
+Semantics(
+  label: 'Excluir conjunto de ritmo.',
+  child: IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: Colors.red,
+                                  ),
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder:
+                                          (ctx) => AlertDialog(
+                                            // ==========================================
+                                            // APLICAÇÃO DO NOVO ESTILO
+                                            // ==========================================
+
+                                            // 1. Bordas arredondadas
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(15.0),
+                                            ),
+
+                                            // 2. Título centralizado
+                                            title: const Text(
+                                              'Confirmar Exclusão',
+                                              textAlign: TextAlign.center,
+                                            ),
+
+                                            // 3. Conteúdo centralizado e com estilo
+                                            content: Text(
+                                              'Deseja excluir "${listaFracoes.join(', ')}"?',
+                                              textAlign: TextAlign.center,
+                                              style: const TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+
+                                            // 4. Alinhamento dos botões (espaçados igualmente)
+                                            actionsAlignment:
+                                                MainAxisAlignment.spaceEvenly,
+
+                                            actions: [
+                                              // Botão de Cancelar (continua como TextButton, mas pode ser estilizado)
+                                              ElevatedButton(
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      Colors
+                                                          .blue, // Cor de fundo vermelha
+                                                  foregroundColor:
+                                                      Colors
+                                                          .white, // Texto branco
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8.0,
+                                                        ),
+                                                  ),
+                                                ),
+                                                onPressed: () {
+                                                  // A lógica de exclusão permanece a mesma
+
+                                                  Navigator.of(ctx).pop();
+                                                },
+                                                child: const Text(
+                                                  'Cancelar',
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
+                                              ),
+
+                                              // Botão de Excluir (agora um ElevatedButton vermelho)
+                                              ElevatedButton(
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      Colors
+                                                          .red, // Cor de fundo vermelha
+                                                  foregroundColor:
+                                                      Colors
+                                                          .white, // Texto branco
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          8.0,
+                                                        ),
+                                                  ),
+                                                ),
+                                                onPressed: () {
+                                                  // A lógica de exclusão permanece a mesma
+                                                  ritmoProvider
+                                                      .excluirConjuntoSalvo(
+                                                        conjunto.nome,
+                                                      );
+                                                  Navigator.of(ctx).pop();
+                                                },
+                                                child: const Text(
+                                                  'Confirmar',
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                    );
+                                  },
+                                ),),
+                                
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
     );
   }
 }
+
 ----------------
 [user_interface\widgets\botao_faixa_individual.dart]
 
@@ -914,18 +1581,29 @@ class BotaoFaixaIndividual extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Acessa o provider para o estado e ações
     final ritmoProvider = Provider.of<RitmoProvider>(context);
     bool estaSelecionada = fracao.estaSelecionada;
-
-    // Definir um tamanho fixo ou mínimo para o botão
-    const double larguraBotao = 100.0; // Ajuste conforme necessário
+    const double larguraBotao = 100.0; 
     const double alturaBotao = 40.0;
+    final identidadeFracao = 'faixa ${fracao.id.toUpperCase()}';
 
-    return ElevatedButton(
+    return Semantics(
+      // Label principal que descreve o botão e seu estado.
+      label: estaSelecionada
+          ? '$identidadeFracao, selecionada'
+          : 'Selecionar $identidadeFracao',
+      // Dica sobre o que a ação faz.
+      hint: 'Toque para alternar a seleção de áudio desta faixa',
+      // Propriedade booleana que informa o estado de seleção.
+      selected: estaSelecionada,
+      // Informa que é um botão.
+      button: true,
+      // Impede que o leitor de tela leia o texto filho ("A", "B", etc.),
+      // pois nosso label já é mais completo.
+      excludeSemantics: true,
+    child: ElevatedButton(
       style: ElevatedButton.styleFrom(
-        minimumSize: const Size(larguraBotao, alturaBotao), // Garante um tamanho mínimo
-        // Ou use fixedSize: Size(larguraBotao, alturaBotao) se quiser tamanho exato
+        minimumSize: const Size(larguraBotao, alturaBotao), 
         backgroundColor: estaSelecionada ? fracao.cor.withOpacity(0.8) : Colors.blueGrey[700],
         foregroundColor: Colors.white,
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -936,22 +1614,17 @@ class BotaoFaixaIndividual extends StatelessWidget {
               : BorderSide(color: Colors.blueGrey[600]!, width: 1.5),
         ),
         elevation: estaSelecionada ? 6 : 2,
-        padding: const EdgeInsets.symmetric(horizontal: 16.0) // Padding interno
+        // padding: const EdgeInsets.symmetric(horizontal: 1.0) // Padding interno
       ),
       onPressed: () {
-        print("Botão Individual ${fracao.id} pressionado!");
+        //print("Botão Individual ${fracao.id} pressionado!");
         ritmoProvider.toggleSelecaoFaixa(fracao.id);
-
-        // A lógica de iniciar/parar global pode ser mantida ou removida daqui,
-        // dependendo se você quer que clicar no botão inicie a reprodução
-        // ou apenas selecione a faixa. Vamos remover por enquanto,
-        // deixando o play/stop global com essa responsabilidade.
-        if (!ritmoProvider.estaTocandoGlobalmente) {
-          ritmoProvider.iniciarOuPausarReproducaoGlobal();
-        }
+        // if (!ritmoProvider.estaTocandoGlobalmente) {
+        //   ritmoProvider.iniciarOuPausarReproducaoGlobal();
+        // }
       },
       child: Text(fracao.id.toUpperCase()),
-    );
+    ),);
   }
 }
 ----------------
@@ -961,32 +1634,27 @@ class BotaoFaixaIndividual extends StatelessWidget {
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/ritmo_provider.dart';
-import '../../models/fracao_model.dart'; // Importar FracaoModel
+import '../../models/fracao_model.dart'; 
 
 class ControlesReproducao extends StatelessWidget {
   const ControlesReproducao({super.key});
 
   Widget _construirBotaoSelecaoFaixa(BuildContext context, FracaoModel fracao, RitmoProvider ritmoProvider) {
-    // Adicione este print para ver se o botão está sendo construído com o estado correto
     print("Construindo botão ${fracao.id}, selecionada: ${fracao.estaSelecionada}, cor: ${fracao.cor}");
 
     bool estaSelecionada = fracao.estaSelecionada;
-
-    // Fator de largura desejado (ex: 0.8 para 80% da largura disponível)
     const double larguraBotaoFactor = 0.5; // Ajuste este valor conforme necessário (0.1 a 1.0)
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),
-      child: LayoutBuilder( // Usar LayoutBuilder para obter as restrições do pai
+      child: LayoutBuilder( 
         builder: (BuildContext context, BoxConstraints constraints) {
-          // constraints.maxWidth será a largura total disponível para o botão
-          // devido ao CrossAxisAlignment.stretch da Column pai.
           final double larguraDoBotao = constraints.maxWidth * larguraBotaoFactor;
 
-          return Center( // Centralizar o botão que agora terá uma largura fixa
+          return Center( 
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                fixedSize: Size(larguraDoBotao, 40), // Largura dinâmica, altura fixa
+                fixedSize: Size(larguraDoBotao, 40), 
                 backgroundColor: estaSelecionada ? fracao.cor.withOpacity(0.8) : Colors.blueGrey[700],
                 foregroundColor: Colors.white,
                 textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -1037,7 +1705,7 @@ class ControlesReproducao extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.stretch, // Mantém o stretch
+            crossAxisAlignment: CrossAxisAlignment.stretch, 
             children: [
               _construirBotaoSelecaoFaixa(context, fracaoB1, ritmoProvider),
               const SizedBox(height: 12),
@@ -1058,6 +1726,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/fracao_model.dart';
 import '../../services/ritmo_provider.dart';
+// import './teclado_numerico.dart';
+// import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart'; 
 
 class FaixaInputFracao extends StatelessWidget {
   const FaixaInputFracao({super.key});
@@ -1067,17 +1738,20 @@ class FaixaInputFracao extends StatelessWidget {
     final ritmoProvider = Provider.of<RitmoProvider>(context);
 
     return Container(
-      
-     
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center, // Distribui espaço entre os inputs
-        children: ritmoProvider.fracoes.map((fracao) {
-          // Adiciona um padding em volta de cada linha de input para espaçamento
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5.0, horizontal: 8.0),
-            child: LinhaInputFracao(fracao: fracao),
-          );
-        }).toList(),
+        mainAxisAlignment:
+            MainAxisAlignment.center, // Distribui espaço entre os inputs
+        children:
+            ritmoProvider.fracoes.map((fracao) {
+              // Adiciona um padding em volta de cada linha de input para espaçamento
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 5.0,
+                  horizontal: 8.0,
+                ),
+                child: LinhaInputFracao(fracao: fracao),
+              );
+            }).toList(),
       ),
     );
   }
@@ -1098,36 +1772,34 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
   @override
   void initState() {
     super.initState();
-    _numCtrl = TextEditingController(
-        text: widget.fracao.numerador?.toString() ?? '');
-    _denCtrl = TextEditingController(
-        text: widget.fracao.denominador?.toString() ?? '');
+    _numCtrl = TextEditingController();
+    _denCtrl = TextEditingController();
+    _atualizarControllersComModelo();
   }
 
   @override
-  void didUpdateWidget(covariant LinhaInputFracao old) {
-    super.didUpdateWidget(old);
-    // Se o modelo mudou de fora, atualiza os controllers
-    if (old.fracao.numerador?.toString() !=
-        widget.fracao.numerador?.toString()) {
-      _numCtrl.text = widget.fracao.numerador?.toString() ?? '';
+  void didUpdateWidget(covariant LinhaInputFracao oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _atualizarControllersComModelo();
+  }
+
+  void _atualizarControllersComModelo() {
+    final novoNumeradorStr = widget.fracao.numerador?.toString() ?? '';
+    final novoDenominadorStr = widget.fracao.denominador?.toString() ?? '';
+    if (_numCtrl.text != novoNumeradorStr) {
+      _numCtrl.text = novoNumeradorStr;
     }
-    if (old.fracao.denominador?.toString() !=
-        widget.fracao.denominador?.toString()) {
-      _denCtrl.text = widget.fracao.denominador?.toString() ?? '';
+    if (_denCtrl.text != novoDenominadorStr) {
+      _denCtrl.text = novoDenominadorStr;
     }
   }
 
   void _onChanged() {
-    final num = int.tryParse(_numCtrl.text);
-    final den = int.tryParse(_denCtrl.text);
     final prov = Provider.of<RitmoProvider>(context, listen: false);
-    if (num != null && den != null && num > 0 && den > 0) {
-      prov.atualizarValorFracao(widget.fracao.id, '$num:$den');
-    } else {
-      // limpa se inválido
-      prov.atualizarValorFracao(widget.fracao.id, '');
-    }
+    prov.atualizarValorFracao(
+      widget.fracao.id,
+      '${_numCtrl.text}:${_denCtrl.text}',
+    );
   }
 
   @override
@@ -1137,59 +1809,202 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
     super.dispose();
   }
 
+  // dentro de user_interface/widgets/faixa_input_fracao.dart
+// na classe _LinhaInputFracaoState
+
+// void _abrirTecladoCustomizado(TextEditingController controller) {
+//   showDialog(
+//     context: context,
+//     // AQUI ESTÁ A MÁGICA:
+//     // O builder do showDialog nos dá mais controle sobre o posicionamento.
+//     builder: (ctx) {
+//       return Dialog(
+//         // Alinha o diálogo no topo da tela.
+//         alignment: Alignment.topCenter,
+        
+//         // Remove a elevação (sombra) padrão do diálogo.
+//         elevation: 0,
+        
+//         // Faz o fundo ser transparente para não vermos a caixa branca do diálogo.
+//         backgroundColor: Colors.white,
+        
+//         // Impede que o diálogo ocupe toda a largura da tela.
+//         insetPadding: const EdgeInsets.symmetric(horizontal: 80.0, vertical: 100.0),
+
+//         child: SizedBox(
+//           // Mantemos uma altura fixa para o nosso teclado.
+//           height: 250,
+//           child: TecladoNumerico(
+//             onDigitPressed: (digit) {
+//               controller.text += digit;
+//             },
+//             onBackspacePressed: () {
+//               if (controller.text.isNotEmpty) {
+//                 controller.text =
+//                     controller.text.substring(0, controller.text.length - 1);
+//               }
+//             },
+//             onConfirmPressed: () {
+//               Navigator.of(ctx).pop(); // Fecha o diálogo
+//               _onChanged();
+//             },
+//           ),
+//         ),
+//       );
+//     },
+//   ).whenComplete(() {
+//     // Esta função é chamada quando o diálogo é fechado.
+//     _onChanged();
+//   });
+// }
+
   @override
   Widget build(BuildContext context) {
+    final identidadeFracao = 'fração ${widget.fracao.id.toUpperCase()}';
+
+
+    //  void handleTap(TextEditingController controller) {
+    //   final prov = Provider.of<RitmoProvider>(context, listen: false);
+    //   // prov.pararFracaoSeTocando(widget.fracao.id);
+     
+    //   _abrirTecladoCustomizado(controller);
+    // }
+    
+     Widget buildConditionalTextField(
+        TextEditingController controller, String hintText, String labelPart) {
+           
+      return SizedBox(
+        width: 40,
+        height: 32,
+        child: Semantics(
+label: '$labelPart para a $identidadeFracao. Valor atual: ${controller.text.isEmpty ? 'vazio' : controller.text}',
+      hint: 'Toque para abrir o teclado númerico e digitar o valor', // Hint simplificado
+      
+      child: TextField(
+        controller: controller,
+        textAlign: TextAlign.center,
+        
+        // --- MUDANÇAS PRINCIPAIS AQUI ---
+
+        // 1. O campo é SEMPRE editável. Isso permite que o teclado nativo apareça.
+        readOnly: false, 
+
+        // 2. Define o tipo de teclado para numérico (funciona em web e mobile).
+        keyboardType: TextInputType.number, 
+
+        // 3. (RECOMENDADO) Garante que o usuário só possa digitar números.
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly
+        ],
+        
+        showCursor: true,
+
+        // 4. Ao TOCAR no campo, paramos a fração se ela estiver tocando.
+        //    Isso acontece ANTES do teclado aparecer.
+        onTap: () {
+          Provider.of<RitmoProvider>(context, listen: false)
+              .pararFracaoSeTocando(widget.fracao.id);
+        },
+
+        // 5. Ao ALTERAR o texto (digitando), chamamos _onChanged para atualizar o estado.
+        //    Isso agora funciona em TODAS as plataformas.
+        onChanged: (_) => _onChanged(),
+
+            decoration: InputDecoration(
+              hintText: hintText,
+              isDense: true,
+            ),
+          ),
+        ),
+      );
+    }
+    
+    
+    
     return Row(
       children: [
-        Text(widget.fracao.id.toUpperCase(),
-            style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: widget.fracao.cor)),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 40,
-          height: 32,
-          child: TextField(
-            controller: _numCtrl,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            decoration: const InputDecoration(
-              hintText: 'N',
-              isDense: true,
-            ),
-            onChanged: (_) => _onChanged(),
-          ),
-        ),
-        const Text('/', style: TextStyle(fontSize: 16)),
-        SizedBox(
-          width: 40,
-          height: 32,
-          child: TextField(
-            controller: _denCtrl,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            decoration: const InputDecoration(
-              hintText: 'D',
-              isDense: true,
-            ),
-            onChanged: (_) => _onChanged(),
+        Text(
+          widget.fracao.id.toUpperCase(),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: widget.fracao.cor,
           ),
         ),
         const SizedBox(width: 8),
+ buildConditionalTextField(_numCtrl, 'N', 'Numerador'),
+ExcludeSemantics(child: const Text('/', style: TextStyle(fontSize: 16)),),
+
+
+        buildConditionalTextField(_denCtrl, 'D', 'Denominador'),
+
+
+
+      //   Semantics(
+      //     label: 'Numerador para a $identidadeFracao. Valor atual: ${_numCtrl.text.isEmpty ? 'vazio' : _numCtrl.text}',
+      //     button: true,
+      //     hint: 'Toque para abrir o teclado numérico',
+      //     excludeSemantics: true,
+      //     child: SizedBox(
+      //       width: 40,
+      //       height: 32,
+      //       child: TextField(
+      //         controller: _numCtrl,
+      //         textAlign: TextAlign.center,
+      //         readOnly: true, // <-- FALTOU ESTA LINHA! ESSENCIAL.
+      //         showCursor: true,
+      //         onTap: () => _abrirTecladoCustomizado(_numCtrl),
+      //         decoration: const InputDecoration(hintText: 'N', isDense: true),
+      //         // Removido o onChanged daqui, pois é controlado pelo teclado.
+      //       ),
+      //     ),
+      //   ),
+      //   const Text('/', style: TextStyle(fontSize: 16)),
+      //  Semantics(
+      //     label: 'Denominador para a $identidadeFracao. Valor atual: ${_denCtrl.text.isEmpty ? 'vazio' : _denCtrl.text}',
+      //     button: true,
+      //     hint: 'Toque para abrir o teclado numérico',
+      //     excludeSemantics: true,
+      //     child: SizedBox(
+      //       width: 40,
+      //       height: 32,
+      //       child: TextField(
+      //         controller: _denCtrl,
+      //         textAlign: TextAlign.center,
+      //         readOnly: true, // <-- FALTOU ESTA LINHA!
+      //         showCursor: true, // <-- ADICIONADO PARA CONSISTÊNCIA
+      //         onTap: () => _abrirTecladoCustomizado(_denCtrl), // <-- FALTOU ESTA LINHA!
+      //         decoration: const InputDecoration(hintText: 'D', isDense: true),
+      //         // onChanged: (_) => _onChanged(), <-- REMOVIDO
+      //       ),
+      //     ),
+      //   ),
+
         IconButton(
-          icon: const Icon(Icons.delete_outline, size: 20),
+          // Passamos a cor da fração para o ícone
+          icon: Icon(
+            Icons.delete_outline,
+            size: 20,
+            color: widget.fracao.cor, // Adicione esta linha
+            semanticLabel: 'Limpar fração',
+          ),
+          tooltip: 'Limpar fração',
           onPressed: () {
             _numCtrl.clear();
             _denCtrl.clear();
-            Provider.of<RitmoProvider>(context, listen: false)
-                .excluirValorFracao(widget.fracao.id);
+            Provider.of<RitmoProvider>(
+              context,
+              listen: false,
+            ).excluirValorFracao(widget.fracao.id);
           },
         ),
+
+        // ),
       ],
     );
   }
 }
+
 ----------------
 [user_interface\widgets\side_menu.dart]
 
@@ -1197,21 +2012,19 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:ritmatica_app/user_interface/screens/about.dart';
+import 'package:ritmatica_app/user_interface/screens/agradecimentos.dart';
+import 'package:ritmatica_app/user_interface/screens/instrucoes.dart';
 import '../../services/ritmo_provider.dart';
 import '../../user_interface/screens/tela_ritmos_salvos.dart'; // Para navegação
 
 class SideMenu extends StatelessWidget {
-  // Callback para acionar a função de salvar da TelaPrincipal
   final VoidCallback onSalvarRitmo;
 
-  const SideMenu({
-    super.key,
-    required this.onSalvarRitmo,
-  });
+  const SideMenu({super.key, required this.onSalvarRitmo});
 
   @override
   Widget build(BuildContext context) {
-    // Usar Consumer para que o Slider e o texto do BPM se atualizem
     return Consumer<RitmoProvider>(
       builder: (context, ritmoProvider, child) {
         return Drawer(
@@ -1219,117 +2032,192 @@ class SideMenu extends StatelessWidget {
             padding: EdgeInsets.zero,
             children: <Widget>[
               DrawerHeader(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor, // Ou a cor que desejar
-                ),
-                child: const Text(
-                  'Ritmatica',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                  ),
+                decoration: const BoxDecoration(color: Colors.blue),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Semantics(
+                            // label: 'Apoio',
+                            // header: true,
+                            child: const Text(
+                              'Apoio',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          Semantics(
+                            label:
+                                'Logotipos dos apoiadores: IFSP, CNPQ e RUMO à Educação Matemática Inclusiva',
+                            // image: true,
+                            child: Container(
+                              padding: const EdgeInsets.all(10.0),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(15),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    blurRadius: 8,
+                                    offset: const Offset(2, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Image.asset(
+                                    'assets/image/IFSP_Logo.png',
+                                    height: 70,
+                                    fit: BoxFit.contain,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Image.asset(
+                                    'assets/image/CNPQ_Logo.png',
+                                    height: 70,
+                                    fit: BoxFit.contain,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Image.asset(
+                                    'assets/image/RUMO_Logo.png',
+                                    height: 70,
+                                    fit: BoxFit.contain,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 100,
+                      left: 230,
+                      child: Semantics(
+                        label: 'Botão de Fechar menu',
+                        // button: true,
+                        child: IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              // Padding(
-              //   padding: const EdgeInsets.all(16.0),
-              //   child: Column(
-              //     crossAxisAlignment: CrossAxisAlignment.start,
-              //     children: [
-              //       const Text("Tempo (BPM):", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              //       Row(
-              //         children: [
-              //           Expanded(
-              //             child: Slider(
-              //               value: ritmoProvider.tempoBPM,
-              //               min: 30,
-              //               max: 240,
-              //               divisions: (240 - 30).toInt(),
-              //               label: ritmoProvider.tempoBPM.round().toString(),
-              //               onChanged: (double value) {
-              //                 ritmoProvider.definirTempo(value);
-              //               },
-              //             ),
-              //           ),
-              //           Text(ritmoProvider.tempoBPM.round().toString(), style: const TextStyle(fontSize: 16)),
-              //         ],
-              //       ),
-              //     ],
-              //   ),
-              // ),
               const Divider(),
               ListTile(
-                leading: const Icon(Icons.save_alt_outlined),
-                title: const Text('Salvar Ritmo Atual'),
+                title: Semantics(
+                  label: 'Salvar Ritmo atual na tela',
+                  button: true,
+                  child: const Text("Salvar Ritmo"),
+                ),
+                leading: const Icon(
+                  Icons.save_alt_outlined,
+                  color: Colors.blue,
+                ),
                 onTap: () {
-                  Navigator.pop(context); // Fecha o drawer primeiro
-                  onSalvarRitmo(); // Chama a função da TelaPrincipal
+                  Navigator.pop(context);
+                  onSalvarRitmo();
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.list_alt_outlined),
-                title: const Text('Ver Ritmos Salvos'),
+                title: Semantics(
+                  label: 'Abrir a página com lista de Ritmos Salvos',
+                  button: true,
+                  child: const Text("Lista de Ritmos Salvas"),
+                ),
+                leading: const Icon(
+                  Icons.list_alt_outlined,
+                  color: Colors.blue,
+                ),
+
                 onTap: () {
-                  Navigator.pop(context); // Fecha o drawer
+                  Navigator.pop(context);
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const TelaRitmosSalvos()),
                   );
                 },
               ),
+              ListTile(
+                title: Semantics(
+                  label: 'Controle de Largura da Coluna',
+                  button: true,
+                  child: const Text("Largura da Coluna"),
+                ),
 
+                subtitle: Consumer<RitmoProvider>(
+                  builder: (_, provider, __) {
+                    return Slider(
+                      min: 20,
+                      max: 200,
 
+                      value: provider.subdivisoesPorColunaVisual.toDouble(),
+                      label: provider.subdivisoesPorColunaVisual.toString(),
+                      onChanged: (valor) {
+                        provider.atualizarLarguraColuna(valor.toInt());
+                      },
+                    );
+                  },
+                ),
+              ),
 
-
-
-ListTile(
-  title: const Text('Largura da Coluna'),
-  subtitle: Consumer<RitmoProvider>(
-    builder: (_, provider, __) {
-      return Slider(
-        min: 20,
-        max: 200,
-        divisions: 9,
-        value: provider.subdivisoesPorColunaVisual.toDouble(),
-        label: provider.subdivisoesPorColunaVisual.toString(),
-        onChanged: (valor) {
-          provider.atualizarLarguraColuna(valor.toInt());
-        },
-      );
-    },
-  ),
-),
-
-ListTile(
-  title: const Text('Ticks por Coluna Visual'), // Nome mais descritivo
-  subtitle: Consumer<RitmoProvider>(
-    builder: (_, provider, __) {
-      // Valores de exemplo, ajuste conforme a necessidade de granularidade
-      // para as frações. Um bom LCM para denominadores comuns é útil.
-      // (ex: 12, 16, 24, 32, 36, 48, 60)
-      double sliderValue = provider.subdivisoesPorColunaVisual.toDouble().clamp(4.0, 64.0);
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Slider(
-            min: 4,  // Mínimo de ticks (ex: para representar 1/2, 1/4)
-            max: 64, // Máximo de ticks
-            divisions: (64 - 4) ~/ 4, // Ex: divisões em passos de 4
-            value: sliderValue,
-            label: provider.subdivisoesPorColunaVisual.toString(),
-            onChanged: (valor) {
-              provider.atualizarLarguraColuna(valor.toInt());
-            },
-          ),
-          Text("${provider.subdivisoesPorColunaVisual} ticks", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-        ],
-      );
-    },
-  ),
-),
-
-
-              
-              // Adicione mais opções de menu aqui se necessário
+              ListTile(
+                title: Semantics(
+                  label: 'Abrir a página com as instruções de uso',
+                  button: true,
+                  child: const Text("Instruções de Uso"),
+                ),
+                leading: const Icon(Icons.info_outline, color: Colors.blue),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const UsageInstructionsScreen(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                 
+                  leading: const Icon(Icons.handshake, color: Colors.blue),
+                  title: Semantics(
+                    label: 'Abrir a página de agradecimentos',
+                    child: const Text("Agradecimentos"),
+                  ),
+                  onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const ThankYouScreen())),
+                ),
+                  ListTile(
+                  leading: const Icon(Icons.info_outline, color: Colors.blue),
+                  title: Semantics(
+                    label: 'Abrir a página de informações sobre o aplicativo',
+                    child: const Text("Sobre"),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context); // Fecha o drawer antes de navegar
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const AboutScreen()),
+                    );
+                  },
+                ),
             ],
           ),
         );
@@ -1337,195 +2225,431 @@ ListTile(
     );
   }
 }
+
+----------------
+[user_interface\widgets\splash.dart]
+
+
+----------------
+[user_interface\widgets\teclado_numerico.dart]
+
+// user_interface/widgets/teclado_numerico.dart
+
+import 'package:flutter/material.dart';
+
+class TecladoNumerico extends StatelessWidget {
+  final Function(String) onDigitPressed;
+  final VoidCallback onBackspacePressed;
+  final VoidCallback onConfirmPressed;
+
+  const TecladoNumerico({
+    super.key,
+    required this.onDigitPressed,
+    required this.onBackspacePressed,
+    required this.onConfirmPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Envolvemos em um SafeArea para evitar áreas como a "home bar" do iOS/Android.
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min, // Faz a coluna ter o tamanho dos filhos
+          children: [
+            _buildRow(['1', '2', '3']),
+            _buildRow(['4', '5', '6']),
+            _buildRow(['7', '8', '9']),
+            _buildSpecialRow(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper para criar uma linha de botões numéricos
+  Widget _buildRow(List<String> digits) {
+    return Expanded(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: digits.map((digit) => _buildDigitButton(digit)).toList(),
+      ),
+    );
+  }
+
+  // Helper para criar a linha inferior com botões especiais
+  Widget _buildSpecialRow() {
+    return Expanded(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Botão de Apagar
+          _buildActionButton(
+            icon: Icons.backspace_outlined,
+            onPressed: onBackspacePressed,
+            label: 'Apagar último dígito',
+          ),
+          // Botão 0
+          _buildDigitButton('0'),
+          // Botão OK
+          _buildActionButton(
+            icon: Icons.check_circle_outline,
+            onPressed: onConfirmPressed,
+            label: 'Confirmar e fechar teclado',
+            color: Colors.green,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper para criar o botão de um dígito
+  Widget _buildDigitButton(String digit) {
+    return Expanded(
+      child: Semantics(
+        label: 'Dígito $digit',
+        button: true,
+        excludeSemantics: true,
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: ElevatedButton(
+            onPressed: () => onDigitPressed(digit),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text(digit, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Helper para criar os botões de ação (Apagar, OK)
+  Widget _buildActionButton({required IconData icon, required VoidCallback onPressed, required String label, Color? color}) {
+    return Expanded(
+      child: Semantics(
+        label: label,
+        button: true,
+        excludeSemantics: true,
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: ElevatedButton(
+            onPressed: onPressed,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: color ?? Colors.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Icon(icon, size: 28),
+          ),
+        ),
+      ),
+    );
+  }
+}
 ----------------
 [user_interface\widgets\visualizador_ritmo.dart]
 
-// visualizador_ritmo.dart
+// user_interface/widgets/visualizador_ritmo.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/fracao_model.dart';
 import '../../services/ritmo_provider.dart';
-import 'dart:math';
 
-class VisualizadorRitmo extends StatelessWidget {
-  const VisualizadorRitmo({super.key});
+
+class VisualizadorRitmo extends StatefulWidget {
+    final bool estaTocando; 
+  const VisualizadorRitmo({super.key,
+    required this.estaTocando,});
+
+
+  @override
+  State<VisualizadorRitmo> createState() => _VisualizadorRitmoState();
+}
+
+class _VisualizadorRitmoState extends State<VisualizadorRitmo>
+    with TickerProviderStateMixin {
+ 
+  late Map<String, AnimationController> _controllers;
+ 
+  late Map<String, int> _previousBolinhasMostradas;
+
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = {};
+    _previousBolinhasMostradas = {};
+   
+   
+    final provider = Provider.of<RitmoProvider>(context, listen: false);
+    for (var fracao in provider.fracoes) {
+      _criarControllerParaFracao(fracao, provider);
+    }
+  }
+
+
+ 
+  void _criarControllerParaFracao(FracaoModel fracao, RitmoProvider provider) {
+   
+    final intervalo = provider.getIntervaloMsPorId(fracao.id);
+
+
+    _controllers[fracao.id] = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: intervalo > 0 ? intervalo : 1000), 
+    );
+    // ..addListener(() {
+      
+    //     setState(() {});
+    //   });
+   
+  
+    _previousBolinhasMostradas[fracao.id] = provider.bolinhasMostradas[fracao.id] ?? 0;
+  }
+ 
+  @override
+  void dispose() {
+    for (var controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final provider = Provider.of<RitmoProvider>(context);
+    for (var fracao in provider.fracoes) {
+      final controller = _controllers[fracao.id];
+      if (controller == null) continue; 
+      if (widget.estaTocando) {
+       
+        if (!controller.isAnimating && controller.value > 0.0 && controller.value < 1.0) {
+      
+          controller.forward(); 
+        }
+      } else {
+        
+        if (controller.isAnimating) {
+          controller.stop();
+        }
+      }
+
+      final atual = provider.bolinhasMostradas[fracao.id] ?? 0;
+      final anterior = _previousBolinhasMostradas[fracao.id] ?? 0;
+
+      if (atual > anterior) {
+        final intervalo = provider.getIntervaloMsPorId(fracao.id);
+        controller.duration =
+            Duration(milliseconds: intervalo > 0 ? intervalo : 1000);
+      
+        controller.forward(from: 0.0);
+      }
+      
+      _previousBolinhasMostradas[fracao.id] = atual;
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<RitmoProvider>(
-      builder: (context, provider, child) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            if (constraints.maxWidth == 0 || constraints.maxHeight == 0) {
-              return const SizedBox.shrink();
-            }
-            return Container(
-              width: double.infinity,
-              height: double.infinity,
-              clipBehavior: Clip.hardEdge,
-              decoration: BoxDecoration(
-                color: Colors.black,
-                border: Border.all(color: Colors.grey[800]!, width: 1),
-              ),
-              child: CustomPaint(
-                painter: PintorRitmo(
-                  fracoes: provider.fracoes,
-                  // circleIndex: provider.batidaAtual,
-                  subdivisoesPorColuna: provider.subdivisoesPorColunaVisual,
-                  estaTocandoGlobalmente: provider.estaTocandoGlobalmente,
-                  offsetHorizontalTicks: provider.offsetHorizontalScroll,
-                  canvasSize: constraints.biggest,
-                  bolinhasMostradas: provider.bolinhasMostradas, // novo campo obrigatório
-                ),
-              ),
-            );
-          },
+    final provider = Provider.of<RitmoProvider>(context, listen: false);
+
+    // final Map<String, double> animationProgress =
+    //     _controllers.map((key, value) => MapEntry(key, value.value));
+
+    final repaintListenable = Listenable.merge(_controllers.values.toList());
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth == 0 || constraints.maxHeight == 0) {
+          return const SizedBox.shrink();
+        }
+        return Container(
+          width: double.infinity,
+          height: double.infinity,
+          clipBehavior: Clip.hardEdge,
+          decoration: BoxDecoration(
+            color: Colors.black,
+            border: Border.all(color: Colors.grey[800]!, width: 1),
+          ),
+          child: CustomPaint(
+            painter: PintorRitmo(
+              fracoes: provider.fracoes,
+              subdivisoesPorColuna: provider.subdivisoesPorColunaVisual,
+              offsetHorizontalTicks: provider.offsetHorizontalScroll,
+              canvasSize: constraints.biggest,
+              bolinhasMostradas: provider.bolinhasMostradas,
+              // animationProgress: animationProgress,
+              controllers: _controllers, 
+              repaint: repaintListenable,
+            ),
+           
+          ),
         );
       },
     );
   }
 }
 
+
+
+
+
+
 class PintorRitmo extends CustomPainter {
   final List<FracaoModel> fracoes;
-  //final int circleIndex; // quantidade de bolinhas já exibidas
   final int subdivisoesPorColuna;
-  final bool estaTocandoGlobalmente;
+  // final bool estaTocandoGlobalmente;
   final double offsetHorizontalTicks;
   final Size canvasSize;
-   final Map<String, int> bolinhasMostradas;
+  final Map<String, int> bolinhasMostradas;
+
+  final Map<String, AnimationController> controllers;
+  //  final Map<String, double> animationProgress;
+
 
   static const double RAIO_BOLINHA = 7.0;
   static const double ESPACO_SEGMENTO = 7.0;
   static const double ESPESSURA_LINHA = 1.5;
 
+
   PintorRitmo({
     required this.fracoes,
-    // required this.circleIndex,
     required this.subdivisoesPorColuna,
-    required this.estaTocandoGlobalmente,
+    // required this.estaTocandoGlobalmente,
     required this.offsetHorizontalTicks,
     required this.canvasSize,
     required this.bolinhasMostradas,
-  });
+     required this.controllers,
+      required Listenable repaint, 
+     
+    // required this.animationProgress,
+  }) : super(repaint: repaint);
+
+
+
+
+   Offset _getPosicaoBolinha(int index, FracaoModel fracao, double yCenter, double larguraColuna, double offsetX) {
+      final int cols = fracao.numerador!;
+      final int bols = fracao.denominador!;
+      final double blocoW = cols * larguraColuna;
+
+
+      final int blocoIdx = index ~/ bols;
+      final double inicioXDoBloco = blocoIdx * blocoW;
+      final int bolinhaNoBlocoIdx = index % bols;
+
+
+      double posXnoMundo;
+       if (cols == bols) {
+      posXnoMundo = inicioXDoBloco + ((bolinhaNoBlocoIdx + 1) * larguraColuna);
+    } else {
+      final double fracaoPosNoBloco = (bolinhaNoBlocoIdx + 1.0) / bols;
+      posXnoMundo = inicioXDoBloco + (fracaoPosNoBloco * blocoW);
+    }
+    final double posXnoCanvas = posXnoMundo + offsetX;
+    return Offset(posXnoCanvas, yCenter);
+  }
+
 
   @override
   void paint(Canvas canvas, Size size) {
     if (subdivisoesPorColuna <= 0 || fracoes.isEmpty) return;
 
-    // --- CALCULA LARGURA FIXA DAS COLUNAS E OFFSET ---
+
     final double larguraColuna = ESPACO_SEGMENTO * subdivisoesPorColuna;
     final double offsetX = -offsetHorizontalTicks * ESPACO_SEGMENTO;
-
-    // --- DESENHA COLUNAS TRACEJADAS FIXAS DE FUNDO ---
-    final Paint paintGrid = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-
-    double xStart = ((-offsetX / larguraColuna).floor()) * larguraColuna;
-    for (double x = xStart;
-        x < -offsetX + size.width + larguraColuna;
-        x += larguraColuna) {
-      double xCanvas = x + offsetX;
-      if (xCanvas >= -larguraColuna && xCanvas <= size.width + larguraColuna) {
-        for (double y = 0; y < size.height; y += 10) {
-          canvas.drawLine(
-            Offset(xCanvas, y),
-            Offset(xCanvas, y + 5),
-            paintGrid,
-          );
+    final Paint paintGrid = Paint()..color = Colors.white..strokeWidth = 1.0..style = PaintingStyle.stroke;
+    if (larguraColuna > 0) {
+      double xStart = ((-offsetX / larguraColuna).floor()) * larguraColuna;
+       for (double x = xStart; x < -offsetX + size.width + larguraColuna; x += larguraColuna) {
+        double xCanvas = x + offsetX;
+        if (xCanvas >= -larguraColuna && xCanvas <= size.width + larguraColuna) {
+          for (double y = 0; y < size.height; y += 10) {
+            canvas.drawLine(Offset(xCanvas, y), Offset(xCanvas, y + 5), paintGrid);
+          }
         }
       }
-    }
+     }
 
-    // --- DESENHA BOLINHAS E LINHA DE CONEXÃO ---
+
     final double alturaTotal = size.height * 0.9;
     final double margemV = size.height * 0.1 / 2;
     final double alturaFaixa = alturaTotal / fracoes.length;
 
+
     for (int row = 0; row < fracoes.length; row++) {
       final fracao = fracoes[row];
-        // NÃO verificamos mais “!fracao.estaTocando” aqui.
-      // Apenas pulamos se a fração estiver sem numerador/denominador:
       if (fracao.numerador == null || fracao.denominador == null) continue;
-      //if (!fracao.estaTocando || fracao.numerador == null || fracao.denominador == null) continue;
 
-      final int cols = fracao.numerador!;    // número de colunas no bloco
-      final int bols = fracao.denominador!;  // bolinhas por bloco
-      final double blocoW = cols * larguraColuna;
+
+      final int numBolinhasTotal = bolinhasMostradas[fracao.id] ?? 0;
+      if (numBolinhasTotal <= 0) continue;
+
+
       final double yCenter = margemV + alturaFaixa * row + alturaFaixa / 2;
 
-      // pré-calcular posições de cada bolinha em cada bloco
-      List<Offset> allPositions = [];
-      ///mudei aqui
-      // for (double x = -offsetX % blocoW - blocoW; x < size.width; x += blocoW) 
-         for (double x = (-offsetX % blocoW); x < size.width; x += blocoW) {
-        if (cols == bols) {
-          // caso bols == cols: uma bolinha por coluna, centralizada em cada coluna
-          for (int c = 0; c < cols; c++) {
-            // double posX = x + c * larguraColuna + larguraColuna / 2;
-           // final double posX = x + c * larguraColuna;
-           final double posX = x + c * larguraColuna + offsetX;
 
-            allPositions.add(Offset(posX, yCenter));
-          }
-        } else {
-          // distribui bols bolinhas ao longo do bloco, última no tracejado
-          for (int b = 0; b < bols; b++) {
-            double fracPos = (b + 1) / bols;
-             final double posX = x + fracPos * blocoW + offsetX;
-             allPositions.add(Offset(posX, yCenter));
-          }
+    
+      //final double progress = animationProgress[fracao.id] ?? 0.0;
+     final double progress = controllers[fracao.id]?.value ?? 0.0;
+     
+      Offset posAnterior, posProxima;
+
+
+      if (numBolinhasTotal == 1) {
+     
+        posAnterior = Offset(0, yCenter);
+        posProxima = _getPosicaoBolinha(0, fracao, yCenter, larguraColuna, offsetX);
+      } else {
+     
+        posAnterior = _getPosicaoBolinha(numBolinhasTotal - 2, fracao, yCenter, larguraColuna, offsetX);
+        posProxima = _getPosicaoBolinha(numBolinhasTotal - 1, fracao, yCenter, larguraColuna, offsetX);
+      }
+     
+    
+      final Offset pontoFinalDaLinha = Offset.lerp(posAnterior, posProxima, progress)!;
+
+
+    
+      final Paint paintLine = Paint()..color = fracao.cor.withOpacity(0.8)..strokeWidth = ESPESSURA_LINHA..strokeCap = StrokeCap.round;
+      canvas.drawLine(Offset(0, yCenter), pontoFinalDaLinha, paintLine);
+
+      final int numBolinhasCompletas = numBolinhasTotal - 1;
+      final Paint paintDot = Paint()..color = fracao.cor;
+      for (int i = 0; i < numBolinhasCompletas; i++) {
+        final position = _getPosicaoBolinha(i, fracao, yCenter, larguraColuna, offsetX);
+        if (position.dx > -RAIO_BOLINHA && position.dx < size.width + RAIO_BOLINHA) {
+          canvas.drawCircle(position, RAIO_BOLINHA, paintDot);
         }
       }
-
-      // determina quantas bolinhas exibir até agora
-      // int count = min(circleIndex, allPositions.length);
-      // if (count <= 0) continue;
-
-      final int count = min(bolinhasMostradas[fracao.id] ?? 0, allPositions.length);
-  if (count <= 0) continue;
-
-      // pinta linha de conexão até a última bolinha
-      final Paint paintLine = Paint()
-        ..color = fracao.cor.withOpacity(0.8)
-        ..strokeWidth = ESPESSURA_LINHA
-        ..strokeCap = StrokeCap.round;
-      // canvas.drawLine(allPositions.first, allPositions[count - 1], paintLine);
-      canvas.drawLine(Offset(0, yCenter), allPositions[count - 1], paintLine);
-
-      // pinta bolinhas
-      final Paint paintDot = Paint()..color = fracao.cor;
-      for (int i = 0; i < count; i++) {
-        canvas.drawCircle(allPositions[i], RAIO_BOLINHA, paintDot);
+     
+   
+      if (progress >= 1.0) {
+        final position = _getPosicaoBolinha(numBolinhasTotal - 1, fracao, yCenter, larguraColuna, offsetX);
+        if (position.dx > -RAIO_BOLINHA && position.dx < size.width + RAIO_BOLINHA) {
+          canvas.drawCircle(position, RAIO_BOLINHA, paintDot);
+        }
       }
     }
   }
 
-  // @override
-  // bool shouldRepaint(covariant PintorRitmo old) =>
-  //     old.circleIndex != circleIndex ||
-  //     old.estaTocandoGlobalmente != estaTocandoGlobalmente ||
-  //     old.offsetHorizontalTicks != offsetHorizontalTicks ||
-  //     old.subdivisoesPorColuna != subdivisoesPorColuna;
 
-    @override
+
+
+  @override
   bool shouldRepaint(covariant PintorRitmo old) {
-    if (old.estaTocandoGlobalmente != estaTocandoGlobalmente) return true;
-    if (old.offsetHorizontalTicks != offsetHorizontalTicks) return true;
-    if (old.subdivisoesPorColuna != subdivisoesPorColuna) return true;
-
-    // **Verifica se mudou o número de bolinhas para qualquer fração**
-    for (var f in fracoes) {
-      final oldCount = old.bolinhasMostradas[f.id] ?? 0;
-      final newCount = bolinhasMostradas[f.id] ?? 0;
-      if (oldCount != newCount) return true;
-    }
-
-    return false;
+    return old.offsetHorizontalTicks != offsetHorizontalTicks ||
+           old.subdivisoesPorColuna != subdivisoesPorColuna ||
+           old.bolinhasMostradas != bolinhasMostradas;
   }
-
 }
 
 ----------------
@@ -1534,8 +2658,8 @@ class PintorRitmo extends CustomPainter {
 import 'package:flutter/material.dart';
 
 class AppCores {
-  static const Color corB1 = Colors.blue;   // Como visto no vídeo
-  static const Color corB2 = Colors.red;    // Como visto no vídeo
-  static const Color corB3 = Colors.yellow; // Como visto no vídeo
+  static const Color corB1 = Colors.lightGreenAccent;   
+  static const Color corB2 = Colors.red;   
+  static const Color corB3 = Colors.yellow; 
 }
 ----------------
