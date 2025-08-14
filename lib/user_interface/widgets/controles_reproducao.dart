@@ -1,4 +1,3 @@
-// user_interface/widgets/controles_reproducao.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/ritmo_provider.dart';
@@ -11,7 +10,7 @@ class ControlesReproducao extends StatelessWidget {
     print("Construindo botão ${fracao.id}, selecionada: ${fracao.estaSelecionada}, cor: ${fracao.cor}");
 
     bool estaSelecionada = fracao.estaSelecionada;
-    const double larguraBotaoFactor = 0.5; // Ajuste este valor conforme necessário (0.1 a 1.0)
+    const double larguraBotaoFactor = 0.5; 
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),

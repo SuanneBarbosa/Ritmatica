@@ -1,5 +1,3 @@
-// user_interface/widgets/botao_faixa_individual.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/fracao_model.dart';
@@ -22,18 +20,12 @@ class BotaoFaixaIndividual extends StatelessWidget {
     final identidadeFracao = 'faixa ${fracao.id.toUpperCase()}';
 
     return Semantics(
-      // Label principal que descreve o botão e seu estado.
       label: estaSelecionada
           ? '$identidadeFracao, selecionada'
           : 'Selecionar $identidadeFracao',
-      // Dica sobre o que a ação faz.
       hint: 'Toque para alternar a seleção de áudio desta faixa',
-      // Propriedade booleana que informa o estado de seleção.
       selected: estaSelecionada,
-      // Informa que é um botão.
       button: true,
-      // Impede que o leitor de tela leia o texto filho ("A", "B", etc.),
-      // pois nosso label já é mais completo.
       excludeSemantics: true,
     child: ElevatedButton(
       style: ElevatedButton.styleFrom(
@@ -48,14 +40,9 @@ class BotaoFaixaIndividual extends StatelessWidget {
               : BorderSide(color: Colors.blueGrey[600]!, width: 1.5),
         ),
         elevation: estaSelecionada ? 6 : 2,
-        // padding: const EdgeInsets.symmetric(horizontal: 1.0) // Padding interno
       ),
       onPressed: () {
-        //print("Botão Individual ${fracao.id} pressionado!");
         ritmoProvider.toggleSelecaoFaixa(fracao.id);
-        // if (!ritmoProvider.estaTocandoGlobalmente) {
-        //   ritmoProvider.iniciarOuPausarReproducaoGlobal();
-        // }
       },
       child: Text(fracao.id.toUpperCase()),
     ),);

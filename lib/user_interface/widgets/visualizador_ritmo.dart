@@ -1,4 +1,3 @@
-// user_interface/widgets/visualizador_ritmo.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/fracao_model.dart';
@@ -47,11 +46,6 @@ class _VisualizadorRitmoState extends State<VisualizadorRitmo>
       vsync: this,
       duration: Duration(milliseconds: intervalo > 0 ? intervalo : 1000), 
     );
-    // ..addListener(() {
-      
-    //     setState(() {});
-    //   });
-   
   
     _previousBolinhasMostradas[fracao.id] = provider.bolinhasMostradas[fracao.id] ?? 0;
   }
@@ -105,10 +99,6 @@ class _VisualizadorRitmoState extends State<VisualizadorRitmo>
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<RitmoProvider>(context, listen: false);
-
-    // final Map<String, double> animationProgress =
-    //     _controllers.map((key, value) => MapEntry(key, value.value));
-
     final repaintListenable = Listenable.merge(_controllers.values.toList());
 
     return LayoutBuilder(
@@ -143,23 +133,13 @@ class _VisualizadorRitmoState extends State<VisualizadorRitmo>
   }
 }
 
-
-
-
-
-
 class PintorRitmo extends CustomPainter {
   final List<FracaoModel> fracoes;
   final int subdivisoesPorColuna;
-  // final bool estaTocandoGlobalmente;
   final double offsetHorizontalTicks;
   final Size canvasSize;
   final Map<String, int> bolinhasMostradas;
-
   final Map<String, AnimationController> controllers;
-  //  final Map<String, double> animationProgress;
-
-
   static const double RAIO_BOLINHA = 7.0;
   static const double ESPACO_SEGMENTO = 7.0;
   static const double ESPESSURA_LINHA = 1.5;
@@ -233,18 +213,10 @@ class PintorRitmo extends CustomPainter {
     for (int row = 0; row < fracoes.length; row++) {
       final fracao = fracoes[row];
       if (fracao.numerador == null || fracao.denominador == null) continue;
-
-
       final int numBolinhasTotal = bolinhasMostradas[fracao.id] ?? 0;
       if (numBolinhasTotal <= 0) continue;
-
-
       final double yCenter = margemV + alturaFaixa * row + alturaFaixa / 2;
-
-
-    
-      //final double progress = animationProgress[fracao.id] ?? 0.0;
-     final double progress = controllers[fracao.id]?.value ?? 0.0;
+      final double progress = controllers[fracao.id]?.value ?? 0.0;
      
       Offset posAnterior, posProxima;
 
@@ -261,10 +233,8 @@ class PintorRitmo extends CustomPainter {
      
     
       final Offset pontoFinalDaLinha = Offset.lerp(posAnterior, posProxima, progress)!;
-
-
-    
       final Paint paintLine = Paint()..color = fracao.cor.withOpacity(0.8)..strokeWidth = ESPESSURA_LINHA..strokeCap = StrokeCap.round;
+
       canvas.drawLine(Offset(0, yCenter), pontoFinalDaLinha, paintLine);
 
       final int numBolinhasCompletas = numBolinhasTotal - 1;
@@ -285,8 +255,6 @@ class PintorRitmo extends CustomPainter {
       }
     }
   }
-
-
 
 
   @override

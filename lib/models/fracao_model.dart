@@ -1,8 +1,4 @@
-// models/fracao_model.dart
-
 import 'package:flutter/material.dart';
-// import 'package:collection/collection.dart'; // Não mais necessário para ListEquality em padraoBatida
-// import 'dart:math'; // Não mais necessário para gerarPadraoBatida
 
 class FracaoModel {
   String id;
@@ -10,11 +6,9 @@ class FracaoModel {
   int? denominador;
   Color cor;
   String assetSom;
-  bool estaTocando; // Se esta faixa está ATIVA para tocar (não se está selecionada na UI)
-  bool estaSelecionada; // Se está selecionada na UI para ser incluída na reprodução
-  // int get subdivisoesPorUnidade => denominador ?? 1; // Não mais usado dessa forma
-
-
+  bool estaTocando; 
+  bool estaSelecionada; 
+ 
   FracaoModel({
     required this.id,
     this.numerador,
@@ -32,16 +26,12 @@ class FracaoModel {
     return "";
   }
 
-  // REMOVIDO: gerarPadraoBatida
-  // REMOVIDO: pontoFinalDaPrimeiraOcorrenciaDoPadrao
-
   Map<String, dynamic> toJson() => {
     'id': id,
     'numerador': numerador,
     'denominador': denominador,
     'cor': cor.value,
     'assetSom': assetSom,
-    // Não salvamos estaTocando ou estaSelecionada
   };
 
   factory FracaoModel.fromJson(Map<String, dynamic> json) => FracaoModel(
@@ -61,7 +51,7 @@ class FracaoModel {
           numerador == other.numerador &&
           denominador == other.denominador &&
           cor == other.cor &&
-          estaTocando == other.estaTocando && // Comparar se necessário, mas geralmente não para identidade
+          estaTocando == other.estaTocando && 
           estaSelecionada == other.estaSelecionada;
 
   @override

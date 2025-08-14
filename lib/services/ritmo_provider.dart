@@ -1,4 +1,3 @@
-// services/ritmo_provider.dart
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -109,7 +108,6 @@ class RitmoProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  //Métodos Ajustados\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
   void pararFracaoSeTocando(String id) {
     final fracao = _fracoes.firstWhere((f) => f.id == id);
@@ -125,37 +123,6 @@ class RitmoProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-
- 
-  // void atualizarValorFracao(String id, String valorInputUsuario) {
-  //   final fracao = _fracoes.firstWhere((f) => f.id == id);
-
-  //   final partes = valorInputUsuario.split(':');
-
-  //   if (partes.isNotEmpty) {
-  //     final numTemp = int.tryParse(partes[0]);
-  //     fracao.numerador = (numTemp != null && numTemp > 0) ? numTemp : null;
-  //   } else {
-  //     fracao.numerador = null;
-  //   }
-
-  //   if (partes.length > 1) {
-  //     final denTemp = int.tryParse(partes[1]);
-  //     fracao.denominador = (denTemp != null && denTemp > 0) ? denTemp : null;
-  //   } else {
-  //     fracao.denominador = null;
-  //   }
-    
-    
-  //   final bool isFractionValid = fracao.numerador != null && fracao.denominador != null;
-  //   if (!isFractionValid) {
-  //     fracao.estaSelecionada = false; 
-  //   }
-    
-  //   notifyListeners();
-  // }
-  
-
 
   void excluirValorFracao(String id) {
     atualizarValorFracao(id, "");
@@ -301,39 +268,27 @@ class RitmoProvider with ChangeNotifier {
 
 
   Future<bool> salvarConjuntoAtual() async {
-    // 1. Primeiro, filtramos APENAS as frações válidas para criar o nome do conjunto.
     final List<FracaoModel> fracoesValidas = _fracoes
         .where((f) => f.numerador != null && f.denominador != null)
         .toList();
 
-    // Se não houver nenhuma fração válida, não há o que salvar.
     if (fracoesValidas.isEmpty) {
       print("Nenhuma fração válida para salvar.");
-      // Opcional: Mostrar uma mensagem para o usuário
       // ScaffoldMessenger.of(context).showSnackBar(...)
       return false;
     }
 
-    // 2. Criamos o nome usando apenas as frações válidas.
     final nomeAutomatico = fracoesValidas
         .map((f) => f.valorExibicao)
         .where((v) => v.isNotEmpty)
         .join(' | ');
 
-    // =======================================================
-    // AQUI ESTÁ A MUDANÇA PRINCIPAL
-    // =======================================================
     final novoConjunto = ConjuntoRitmoModel(
       nome: nomeAutomatico,
-      // 3. Mapeamos a lista original `_fracoes`, mas limpando as inválidas.
       fracoes: _fracoes.map((f) {
-        // Verificamos se a fração na tela principal é válida.
         final bool isFractionValid = f.numerador != null && f.denominador != null;
-
-        // Criamos uma NOVA FracaoModel para ser salva.
         return FracaoModel(
           id: f.id,
-          // Se for válida, usamos seus valores. Se não, forçamos ambos para null.
           numerador: isFractionValid ? f.numerador : null,
           denominador: isFractionValid ? f.denominador : null,
           cor: f.cor,
@@ -342,7 +297,6 @@ class RitmoProvider with ChangeNotifier {
       }).toList(),
     );
 
-    // O resto do método continua igual
     _conjuntosSalvos.removeWhere((c) => c.nome == nomeAutomatico);
     _conjuntosSalvos.add(novoConjunto);
     await _persistirConjuntosSalvos();
@@ -367,7 +321,6 @@ class RitmoProvider with ChangeNotifier {
           .toList();
     }
   }
-
 
    void aplicarConjuntoSalvo(ConjuntoRitmoModel conjunto) {
    

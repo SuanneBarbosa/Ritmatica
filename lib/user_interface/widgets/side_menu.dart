@@ -1,5 +1,3 @@
-// user_interface/widgets/side_menu.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ritmatica_app/user_interface/screens/about.dart';
@@ -141,54 +139,29 @@ class SideMenu extends StatelessWidget {
                   );
                 },
               ),
- ListTile(
-                  leading: const Icon(Icons.view_column, color: Colors.blue),
-                  subtitle: Semantics(
-                    label:
-                        'Ajustar a Largura da Coluna.',
-                    child: Consumer<RitmoProvider>(
-                      builder: (_, provider, __)  {
-                        return ExcludeSemantics(
-                          child: Slider(
-                            
-                           min: 20,
-                      max: 200,
-                            divisions: 8, value: provider.subdivisoesPorColunaVisual.toDouble(),
-                      label: 'Largura da Coluna.',
-                           
-                            onChanged: (valor) {
-                              provider.atualizarLarguraColuna(valor.toInt());
-                            },
-                          ),
-                        );
-                      },
-                    ),
+              ListTile(
+                leading: const Icon(Icons.view_column, color: Colors.blue),
+                subtitle: Semantics(
+                  label: 'Ajustar a Largura da Coluna.',
+                  child: Consumer<RitmoProvider>(
+                    builder: (_, provider, __) {
+                      return ExcludeSemantics(
+                        child: Slider(
+                          min: 20,
+                          max: 200,
+                          divisions: 8,
+                          value: provider.subdivisoesPorColunaVisual.toDouble(),
+                          label: 'Largura da Coluna.',
+
+                          onChanged: (valor) {
+                            provider.atualizarLarguraColuna(valor.toInt());
+                          },
+                        ),
+                      );
+                    },
                   ),
                 ),
-              
-              // ListTile(
-              //   title: Semantics(
-              //     label: 'Controle de Largura da Coluna',
-              //     button: true,
-              //     child: const Text("Largura da Coluna"),
-              //   ),
-
-              //   subtitle: Consumer<RitmoProvider>(
-              //     builder: (_, provider, __) {
-              //       return Slider(
-              //         min: 20,
-              //         max: 200,
-
-              //         value: provider.subdivisoesPorColunaVisual.toDouble(),
-              //         label: provider.subdivisoesPorColunaVisual.toString(),
-              //         onChanged: (valor) {
-              //           provider.atualizarLarguraColuna(valor.toInt());
-              //         },
-              //       );
-              //     },
-              //   ),
-              // ),
-
+              ),
               ListTile(
                 title: Semantics(
                   label: 'Abrir a página com as instruções de uso',
@@ -207,32 +180,35 @@ class SideMenu extends StatelessWidget {
                 },
               ),
               ListTile(
-                 
-                  leading: const Icon(Icons.handshake, color: Colors.blue),
-                  title: Semantics(
-                    label: 'Abrir a página de agradecimentos',
-                    child: const Text("Agradecimentos"),
-                  ),
-                  onTap: () => Navigator.push(
+                leading: const Icon(Icons.handshake, color: Colors.blue),
+                title: Semantics(
+                  label: 'Abrir a página de agradecimentos',
+                  child: const Text("Agradecimentos"),
+                ),
+                onTap:
+                    () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => const ThankYouScreen())),
+                        builder: (context) => const ThankYouScreen(),
+                      ),
+                    ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.info_outline, color: Colors.blue),
+                title: Semantics(
+                  label: 'Abrir a página de informações sobre o aplicativo',
+                  child: const Text("Sobre"),
                 ),
-                  ListTile(
-                  leading: const Icon(Icons.info_outline, color: Colors.blue),
-                  title: Semantics(
-                    label: 'Abrir a página de informações sobre o aplicativo',
-                    child: const Text("Sobre"),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context); // Fecha o drawer antes de navegar
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const AboutScreen()),
-                    );
-                  },
-                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AboutScreen(),
+                    ),
+                  );
+                },
+              ),
             ],
           ),
         );

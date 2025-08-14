@@ -1,5 +1,3 @@
-// user_interface/widgets/teclado_numerico.dart
-
 import 'package:flutter/material.dart';
 
 class TecladoNumerico extends StatelessWidget {
@@ -16,12 +14,11 @@ class TecladoNumerico extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Envolvemos em um SafeArea para evitar áreas como a "home bar" do iOS/Android.
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
-          mainAxisSize: MainAxisSize.min, // Faz a coluna ter o tamanho dos filhos
+          mainAxisSize: MainAxisSize.min,
           children: [
             _buildRow(['1', '2', '3']),
             _buildRow(['4', '5', '6']),
@@ -33,7 +30,6 @@ class TecladoNumerico extends StatelessWidget {
     );
   }
 
-  // Helper para criar uma linha de botões numéricos
   Widget _buildRow(List<String> digits) {
     return Expanded(
       child: Row(
@@ -43,21 +39,17 @@ class TecladoNumerico extends StatelessWidget {
     );
   }
 
-  // Helper para criar a linha inferior com botões especiais
   Widget _buildSpecialRow() {
     return Expanded(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Botão de Apagar
           _buildActionButton(
             icon: Icons.backspace_outlined,
             onPressed: onBackspacePressed,
             label: 'Apagar último dígito',
           ),
-          // Botão 0
           _buildDigitButton('0'),
-          // Botão OK
           _buildActionButton(
             icon: Icons.check_circle_outline,
             onPressed: onConfirmPressed,
@@ -69,7 +61,6 @@ class TecladoNumerico extends StatelessWidget {
     );
   }
 
-  // Helper para criar o botão de um dígito
   Widget _buildDigitButton(String digit) {
     return Expanded(
       child: Semantics(
@@ -92,7 +83,6 @@ class TecladoNumerico extends StatelessWidget {
     );
   }
 
-  // Helper para criar os botões de ação (Apagar, OK)
   Widget _buildActionButton({required IconData icon, required VoidCallback onPressed, required String label, Color? color}) {
     return Expanded(
       child: Semantics(

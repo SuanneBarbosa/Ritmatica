@@ -1,8 +1,8 @@
 import './fracao_model.dart';
 
 class ConjuntoRitmoModel {
-  String nome; // Nome definido pelo usuário para o conjunto
-  List<FracaoModel> fracoes; // Lista de 3 instâncias de FracaoModel
+  String nome; 
+  List<FracaoModel> fracoes; 
 
   ConjuntoRitmoModel({required this.nome, required this.fracoes});
 
