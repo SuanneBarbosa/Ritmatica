@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:ritmatica_app/user_interface/screens/about.dart';
 import 'package:ritmatica_app/user_interface/screens/agradecimentos.dart';
 import 'package:ritmatica_app/user_interface/screens/instrucoes.dart';
+import 'package:ritmatica_app/user_interface/screens/tutorial_screen.dart';
 import '../../services/ritmo_provider.dart';
 import '../../user_interface/screens/tela_ritmos_salvos.dart'; // Para navegação
 
@@ -136,6 +137,23 @@ class SideMenu extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const TelaRitmosSalvos()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.school_outlined, color: Colors.blue), 
+                title: Semantics(
+                  label: 'Abrir tutorial para entender os conceitos do aplicativo',
+                  button: true,
+                  child: const Text("Entendendo o Ritmática"),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const TutorialScreen(), 
+                    ),
                   );
                 },
               ),

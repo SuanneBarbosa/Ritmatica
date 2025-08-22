@@ -43,8 +43,8 @@ class MeuApp extends StatelessWidget {
 import './fracao_model.dart';
 
 class ConjuntoRitmoModel {
-  String nome; // Nome definido pelo usuário para o conjunto
-  List<FracaoModel> fracoes; // Lista de 3 instâncias de FracaoModel
+  String nome; 
+  List<FracaoModel> fracoes; 
 
   ConjuntoRitmoModel({required this.nome, required this.fracoes});
 
@@ -63,11 +63,7 @@ class ConjuntoRitmoModel {
 ----------------
 [models\fracao_model.dart]
 
-// models/fracao_model.dart
-
 import 'package:flutter/material.dart';
-// import 'package:collection/collection.dart'; // Não mais necessário para ListEquality em padraoBatida
-// import 'dart:math'; // Não mais necessário para gerarPadraoBatida
 
 class FracaoModel {
   String id;
@@ -75,11 +71,9 @@ class FracaoModel {
   int? denominador;
   Color cor;
   String assetSom;
-  bool estaTocando; // Se esta faixa está ATIVA para tocar (não se está selecionada na UI)
-  bool estaSelecionada; // Se está selecionada na UI para ser incluída na reprodução
-  // int get subdivisoesPorUnidade => denominador ?? 1; // Não mais usado dessa forma
-
-
+  bool estaTocando; 
+  bool estaSelecionada; 
+ 
   FracaoModel({
     required this.id,
     this.numerador,
@@ -97,16 +91,12 @@ class FracaoModel {
     return "";
   }
 
-  // REMOVIDO: gerarPadraoBatida
-  // REMOVIDO: pontoFinalDaPrimeiraOcorrenciaDoPadrao
-
   Map<String, dynamic> toJson() => {
     'id': id,
     'numerador': numerador,
     'denominador': denominador,
     'cor': cor.value,
     'assetSom': assetSom,
-    // Não salvamos estaTocando ou estaSelecionada
   };
 
   factory FracaoModel.fromJson(Map<String, dynamic> json) => FracaoModel(
@@ -126,7 +116,7 @@ class FracaoModel {
           numerador == other.numerador &&
           denominador == other.denominador &&
           cor == other.cor &&
-          estaTocando == other.estaTocando && // Comparar se necessário, mas geralmente não para identidade
+          estaTocando == other.estaTocando && 
           estaSelecionada == other.estaSelecionada;
 
   @override
@@ -141,7 +131,6 @@ class FracaoModel {
 ----------------
 [services\ritmo_provider.dart]
 
-// services/ritmo_provider.dart
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -252,7 +241,6 @@ class RitmoProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  //Métodos Ajustados\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
   void pararFracaoSeTocando(String id) {
     final fracao = _fracoes.firstWhere((f) => f.id == id);
@@ -268,37 +256,6 @@ class RitmoProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-
- 
-  // void atualizarValorFracao(String id, String valorInputUsuario) {
-  //   final fracao = _fracoes.firstWhere((f) => f.id == id);
-
-  //   final partes = valorInputUsuario.split(':');
-
-  //   if (partes.isNotEmpty) {
-  //     final numTemp = int.tryParse(partes[0]);
-  //     fracao.numerador = (numTemp != null && numTemp > 0) ? numTemp : null;
-  //   } else {
-  //     fracao.numerador = null;
-  //   }
-
-  //   if (partes.length > 1) {
-  //     final denTemp = int.tryParse(partes[1]);
-  //     fracao.denominador = (denTemp != null && denTemp > 0) ? denTemp : null;
-  //   } else {
-  //     fracao.denominador = null;
-  //   }
-    
-    
-  //   final bool isFractionValid = fracao.numerador != null && fracao.denominador != null;
-  //   if (!isFractionValid) {
-  //     fracao.estaSelecionada = false; 
-  //   }
-    
-  //   notifyListeners();
-  // }
-  
-
 
   void excluirValorFracao(String id) {
     atualizarValorFracao(id, "");
@@ -444,39 +401,27 @@ class RitmoProvider with ChangeNotifier {
 
 
   Future<bool> salvarConjuntoAtual() async {
-    // 1. Primeiro, filtramos APENAS as frações válidas para criar o nome do conjunto.
     final List<FracaoModel> fracoesValidas = _fracoes
         .where((f) => f.numerador != null && f.denominador != null)
         .toList();
 
-    // Se não houver nenhuma fração válida, não há o que salvar.
     if (fracoesValidas.isEmpty) {
       print("Nenhuma fração válida para salvar.");
-      // Opcional: Mostrar uma mensagem para o usuário
       // ScaffoldMessenger.of(context).showSnackBar(...)
       return false;
     }
 
-    // 2. Criamos o nome usando apenas as frações válidas.
     final nomeAutomatico = fracoesValidas
         .map((f) => f.valorExibicao)
         .where((v) => v.isNotEmpty)
         .join(' | ');
 
-    // =======================================================
-    // AQUI ESTÁ A MUDANÇA PRINCIPAL
-    // =======================================================
     final novoConjunto = ConjuntoRitmoModel(
       nome: nomeAutomatico,
-      // 3. Mapeamos a lista original `_fracoes`, mas limpando as inválidas.
       fracoes: _fracoes.map((f) {
-        // Verificamos se a fração na tela principal é válida.
         final bool isFractionValid = f.numerador != null && f.denominador != null;
-
-        // Criamos uma NOVA FracaoModel para ser salva.
         return FracaoModel(
           id: f.id,
-          // Se for válida, usamos seus valores. Se não, forçamos ambos para null.
           numerador: isFractionValid ? f.numerador : null,
           denominador: isFractionValid ? f.denominador : null,
           cor: f.cor,
@@ -485,7 +430,6 @@ class RitmoProvider with ChangeNotifier {
       }).toList(),
     );
 
-    // O resto do método continua igual
     _conjuntosSalvos.removeWhere((c) => c.nome == nomeAutomatico);
     _conjuntosSalvos.add(novoConjunto);
     await _persistirConjuntosSalvos();
@@ -510,7 +454,6 @@ class RitmoProvider with ChangeNotifier {
           .toList();
     }
   }
-
 
    void aplicarConjuntoSalvo(ConjuntoRitmoModel conjunto) {
    
@@ -567,8 +510,6 @@ class RitmoProvider with ChangeNotifier {
 
 ----------------
 [user_interface\screens\about.dart]
-
-// user_interface/screens/about_screen.dart
 
 import 'package:flutter/material.dart';
 
@@ -631,7 +572,7 @@ class AboutScreen extends StatelessWidget {
             const Divider(height: 30),
             _buildSectionTitle('O que é o App?'),
             const Text(
-              'O Ritmática é uma ferramenta educacional inclusiva que transforma conceitos de ritmo e frações em uma experiência visual e sonora, facilitando o aprendizado através de animações e sons.',
+              'O Ritmática é uma ferramenta educacional que transforma conceitos de ritmo e frações em uma experiência visual e sonora, facilitando o aprendizado através de animações e sons.',
               style: TextStyle(fontSize: 16, height: 1.4),
             ),
             const SizedBox(height: 20),
@@ -644,7 +585,7 @@ class AboutScreen extends StatelessWidget {
             _buildFeatureItem(
               Icons.play_circle_outline,
               'Reprodução com Som e Animação:',
-              'Toque no botão "Play" para iniciar a reprodução. O app irá exibir a animação das bolinhas e tocar sons correspondentes a cada fração configurada.',
+              'Toque no botão de ativar B1, B2 ou B3 para ativar a reprodução. O app irá exibir a animação das bolinhas e tocar sons correspondentes a cada fração configurada.',
             ),
             _buildFeatureItem(
               Icons.tune,
@@ -655,11 +596,6 @@ class AboutScreen extends StatelessWidget {
               Icons.save_alt,
               'Salvar e Carregar Ritmos:',
               'Salve suas configurações de ritmo e recupere-as quando quiser através da tela de Ritmos Salvos.',
-            ),
-            _buildFeatureItem(
-              Icons.accessibility_new,
-              'Acessibilidade:',
-              'O Ritmática é compatível com TalkBack, oferecendo orientação inicial por voz ao abrir o app e permitindo navegação por leitores de tela para estudantes com deficiência visual.',
             ),
           ],
         ),
@@ -804,7 +740,7 @@ class ThankYouScreen extends StatelessWidget {
                       ),
                       SizedBox(height: 10),
                       Text(
-                        "Lulu Healy\nNathalie Sinclair\nLulu Healy\nRonaldo Carrilho",
+                        "Lulu Healy\nNathalie Sinclair\nRonaldo Carrilho",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 18,
@@ -950,22 +886,16 @@ class UsageInstructionsScreen extends StatelessWidget {
 ----------------
 [user_interface\screens\tela_principal.dart]
 
-// user_interface/screens/tela_principal.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import '../../services/ritmo_provider.dart';
-import '../../user_interface/widgets/faixa_input_fracao.dart'; // Contém LinhaInputFracao (pública)
-import '../../user_interface/widgets/botao_faixa_individual.dart'; // Widget do botão criado
+import '../../user_interface/widgets/faixa_input_fracao.dart';
+import '../../user_interface/widgets/botao_faixa_individual.dart';
 import '../../user_interface/widgets/visualizador_ritmo.dart';
-import '../../user_interface/widgets/side_menu.dart'; // Widget do menu lateral
+import '../../user_interface/widgets/side_menu.dart';
 import 'dart:math';
-import 'package:flutter/foundation.dart'; 
-// import 'package:flutter_tts/flutter_tts.dart';
-
-// user_interface/screens/tela_principal.dart
-// ... (imports existentes)
+import 'package:flutter/foundation.dart';
 
 class TelaPrincipal extends StatefulWidget {
   const TelaPrincipal({super.key});
@@ -981,144 +911,87 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
 
   @override
   void initState() {
-     super.initState();
-    
-    // PASSO 2: ADICIONE A CONDIÇÃO AQUI
+    super.initState();
+
     if (!kIsWeb) {
-      // O código abaixo só será executado se NÃO for a plataforma web.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _mostrarDialogoOrientacao(context);
       });
     }
   }
 
-   // dentro de user_interface/screens/tela_principal.dart
-// na classe _TelaPrincipalState
+  Future<void> _mostrarDialogoOrientacao(BuildContext context) async {
+    const String titulo = 'Aviso: Orientação do Dispositivo.';
+    const String conteudo =
+        'Antes de utilizar o aplicativo, posicione o celular na sua mão, em modo paisagem, girando no sentido anti-horário.';
+    const String acao = 'Toque no botão OK para fechar este aviso.';
 
-// Future<void> _mostrarDialogoOrientacao(BuildContext context) async {
-//   // 1. Construa a string completa que o TalkBack deve ler.
-//   //    Isso une o título, o conteúdo e a ação em uma única mensagem coesa.
-//   const String titulo = 'Aviso: Orientação do Dispositivo.';
-//   const String conteudo =
-//       'Antes de utilizar o aplicativo, posicione o celular em sua mão, em modo paisagem, girando no sentido anti-horário.';
-//   const String acao = 'Toque no botão OK para fechar este aviso.';
-  
-//   // Junta tudo em uma única string.
-//   final String fullSemanticLabel = '$titulo $conteudo $acao';
+    final String fullSemanticLabel = '$titulo $conteudo $acao';
 
-//   return showDialog<void>(
-//     context: context,
-//     barrierDismissible: false,
-//     builder: (BuildContext dialogContext) {
-//       // 2. Passe a string completa para a propriedade `semanticLabel`.
-//       return AlertDialog(
-//         semanticLabel: fullSemanticLabel,
-
-//         // O conteúdo visual do diálogo permanece o mesmo.
-//         title: const Text('Orientação do Dispositivo'),
-//         content: const SingleChildScrollView(
-//           child: Text(
-//             // Reutilizamos a constante para manter a consistência.
-//             conteudo,
-//           ),
-//         ),
-//         actions: <Widget>[
-//           TextButton(
-//             child: const Text('OK'),
-//             onPressed: () {
-//               Navigator.of(dialogContext).pop();
-//             },
-//           ),
-//         ],
-//       );
-//     },
-//   );
-// }
-
-Future<void> _mostrarDialogoOrientacao(BuildContext context) async {
-  const String titulo = 'Aviso: Orientação do Dispositivo.';
-  const String conteudo =
-      'Antes de utilizar o aplicativo, posicione o celular na sua mão, em modo paisagem, girando no sentido anti-horário.';
-  const String acao = 'Toque no botão OK para fechar este aviso.';
-  
-  final String fullSemanticLabel = '$titulo $conteudo $acao';
-
-  return showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (BuildContext dialogContext) {
-      return AlertDialog(
-        semanticLabel: fullSemanticLabel,
-
-        // =======================================================
-        // MUDANÇAS NO VISUAL
-        // =======================================================
-
-        // Adiciona um arredondamento mais agradável
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15.0),
-        ),
-
-        // 1. Centraliza o título
-        title: const Text(
-          'Orientação do Dispositivo',
-          textAlign: TextAlign.center, 
-        ),
-
-        content: SingleChildScrollView(
-          // 2. Centraliza o texto do conteúdo
-          child: Text(
-            conteudo,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16), // Ajuste de fonte para melhor leitura
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          semanticLabel: fullSemanticLabel,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
           ),
-        ),
 
-        // 3. Centraliza a área dos botões
-        actionsAlignment: MainAxisAlignment.center,
-
-        actions: <Widget>[
-          // 4. Troca TextButton por ElevatedButton
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 10),
-              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-
-shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8.0)),
-
-              
+          title: ExcludeSemantics(
+            child: const Text(
+              'Orientação do Dispositivo',
+              textAlign: TextAlign.center,
             ),
-            child: const Text('OK'),
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-            },
           ),
-        ],
-      );
-    },
-  );
-}
+
+          content: SingleChildScrollView(
+            child: Text(
+              conteudo,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16),
+            ),
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+
+          actions: <Widget>[
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 50,
+                  vertical: 10,
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+              ),
+              child: const Text('OK'),
+
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final ritmoProvider = Provider.of<RitmoProvider>(context);
-     
 
     const int maxColunasIniciaisSlider = 100;
     final double initialMaxTicks =
         (maxColunasIniciaisSlider * ritmoProvider.subdivisoesPorColunaVisual)
             .toDouble();
-
-    // 2. Obtenha o valor atual do scroll do nosso estado (provider).
     final double currentOffset = ritmoProvider.offsetHorizontalScroll;
-
-    // 3. Calcule o 'max' do slider. Ele deve ser o valor inicial ou o valor atual, o que for MAIOR.
-    //    Isso garante que o trilho do slider sempre cresça para acomodar o valor.
     final double sliderMaximum = max(initialMaxTicks, currentOffset);
-
-    // 4. O valor do slider é o valor atual do scroll.
-    //    Usamos .clamp() como uma segurança final para garantir que ele NUNCA ultrapasse o 'max'.
     final double sliderValue = currentOffset.clamp(0.0, sliderMaximum);
 
     return Scaffold(
@@ -1126,38 +999,35 @@ shape: RoundedRectangleBorder(
       resizeToAvoidBottomInset: false,
       drawer: SideMenu(
         onSalvarRitmo: () async {
-          // Chama diretamente o método de salvar do provider
-        final bool foiSalvo = await  Provider.of<RitmoProvider>(
-            context,
-            listen: false,
-          ).salvarConjuntoAtual();
+          final bool foiSalvo =
+              await Provider.of<RitmoProvider>(
+                context,
+                listen: false,
+              ).salvarConjuntoAtual();
 
-         if (!context.mounted) return;
-         if (foiSalvo) {
-          // Mostra a mensagem de sucesso
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Ritmo salvo com sucesso!'),
-              duration: Duration(seconds: 2),
-              backgroundColor: Colors.green,
-            ),
-          );
-        } else {
-          // Mostra uma mensagem de aviso/informação
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Nenhuma fração válida para salvar.'),
-              duration: Duration(seconds: 2),
-              backgroundColor: Colors.redAccent, // Cor diferente para aviso
-            ),
-          );
-        }
-      },
-    ),
-       
+          if (!context.mounted) return;
+          if (foiSalvo) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Ritmo salvo com sucesso!'),
+                duration: Duration(seconds: 2),
+                backgroundColor: Colors.green,
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Nenhuma fração válida para salvar.'),
+                duration: Duration(seconds: 2),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          }
+        },
+      ),
+
       body: Padding(
-    
-                padding: const EdgeInsets.all(1.0),
+        padding: const EdgeInsets.all(1.0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1165,22 +1035,20 @@ shape: RoundedRectangleBorder(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Semantics( 
-                   label: 'Abrir menu de navegação',
-                      button: true,
-                 child: IconButton(
-                  icon: const Icon(Icons.menu),
-                  iconSize: 30,
-                  tooltip: 'Abrir menu',
-                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                ),),
-                
+                Semantics(
+                  label: 'Abrir menu de navegação',
+                  button: true,
+                  child: IconButton(
+                    icon: const Icon(Icons.menu),
+                    iconSize: 30,
+                    tooltip: 'Abrir menu',
+                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                  ),
+                ),
+
                 const Spacer(),
               ],
             ),
-            // const SizedBox(width: 10),
-
-            // Coluna Central (Visualizador, Controles, Slider de Scroll)
             Expanded(
               flex: 6,
               child: Column(
@@ -1189,14 +1057,13 @@ shape: RoundedRectangleBorder(
                     flex: 2,
                     child: VisualizadorRitmo(
                       estaTocando: ritmoProvider.estaTocandoGlobalmente,
-                    ), // Não precisa mais da key para calcular offset
+                    ),
                   ),
                   const SizedBox(height: 5),
 
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // botão de play/stop
                       Semantics(
                         label:
                             ritmoProvider.estaTocandoGlobalmente
@@ -1231,26 +1098,23 @@ shape: RoundedRectangleBorder(
 
                       const SizedBox(width: 12),
                       Semantics(
-                        label: 'Botão para retroceder 10 colunas na tela de animação do ritmo',
+                        label:
+                            'Botão para retroceder 10 colunas na tela de animação do ritmo',
                         button: true,
                         excludeSemantics: true,
                         child: IconButton(
                           icon: const Icon(Icons.arrow_back_ios),
                           tooltip: 'Retroceder',
                           onPressed: () {
-                            // Você pode ajustar o número de colunas a retroceder.
                             ritmoProvider.retrocederScroll(colunas: 10);
                           },
                         ),
                       ),
-
-                      // slider ocupando o resto do espaço (ou largura fixa, se preferir)
-                      // if (maxScrollOffsetTicks > 0.001)
                       Expanded(
                         child: Slider(
-                          value: sliderValue, // <- Usa a variável segura
+                          value: sliderValue,
                           min: 0.0,
-                          max: sliderMaximum, // <- Usa a variável segura
+                          max: sliderMaximum,
                           divisions:
                               (sliderMaximum > 0)
                                   ? (sliderMaximum /
@@ -1271,14 +1135,14 @@ shape: RoundedRectangleBorder(
                         ),
                       ),
                       Semantics(
-                        label: 'Botão para avançar 10 colunas na tela de animação do ritmo',
+                        label:
+                            'Botão para avançar 10 colunas na tela de animação do ritmo',
                         button: true,
                         excludeSemantics: true,
                         child: IconButton(
                           icon: const Icon(Icons.arrow_forward_ios),
                           tooltip: 'Avançar',
                           onPressed: () {
-                            // Você pode ajustar o número de colunas a retroceder.
                             ritmoProvider.avancarScroll(colunas: 10);
                           },
                         ),
@@ -1294,37 +1158,25 @@ shape: RoundedRectangleBorder(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children:
                             ritmoProvider.fracoes.map((fracao) {
-
                               return FocusTraversalGroup(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 2. Semantics com sortKey: Define a ordem de visita.
-          // Itens com 'sortKey' menor são visitados primeiro.
-          Semantics(
-            sortKey: const OrdinalSortKey(1.0), // Ordem 1: A linha de input
-            child: LinhaInputFracao(fracao: fracao),
-          ),
-          const SizedBox(height: 1), // Widget visual, sem semântica
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Semantics(
+                                      sortKey: const OrdinalSortKey(1.0),
+                                      child: LinhaInputFracao(fracao: fracao),
+                                    ),
+                                    const SizedBox(height: 1),
 
-          Semantics(
-            sortKey: const OrdinalSortKey(2.0), // Ordem 2: O botão de faixa
-            child: BotaoFaixaIndividual(fracao: fracao),
-          ),
-        ],
-      ),
-    );
-                              // return Column(
-                              //     mainAxisSize: MainAxisSize.min,
-                              //     children: [
-                              //       // É crucial que LinhaInputFracao tenha sua própria semântica bem definida.
-                              //       LinhaInputFracao(fracao: fracao),
-                              //       const SizedBox(height: 1),
-                              //       // E que BotaoFaixaIndividual também tenha.
-                              //       BotaoFaixaIndividual(fracao: fracao),
-                              //     ],
-                                
-                              // );
+                                    Semantics(
+                                      sortKey: const OrdinalSortKey(2.0),
+                                      child: BotaoFaixaIndividual(
+                                        fracao: fracao,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
                             }).toList(),
                       ),
                     ),
@@ -1335,15 +1187,11 @@ shape: RoundedRectangleBorder(
           ],
         ),
       ),
-
     );
-  
-    
   }
 
   @override
   void dispose() {
-   
     _controladorNomeSalvar.dispose();
     super.dispose();
   }
@@ -1374,197 +1222,171 @@ class TelaRitmosSalvos extends StatelessWidget {
         titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body:
-          ritmoProvider.conjuntosSalvos.isEmpty
-              ? const Center(child: Text('Nenhum Ritmo salvo ainda.'))
-              : ListView.builder(
-                itemCount: ritmoProvider.conjuntosSalvos.length,
-                itemBuilder: (context, index) {
-                  final conjunto = ritmoProvider.conjuntosSalvos[index];
-                  //final numero = index + 1;
-                  final listaFracoes =
-                      conjunto.fracoes
-                          .where((f) => f.valorExibicao.isNotEmpty)
-                          .map((f) => f.valorExibicao.replaceAll(':', '/'))
-                          .toList();
 
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20.0,
-                      vertical: 5.0,
-                    ),
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+      body: Consumer<RitmoProvider>(
+        builder: (context, ritmoProviderDados, child) {
+          if (ritmoProviderDados.conjuntosSalvos.isEmpty) {
+            return const Center(child: Text('Nenhum Ritmo salvo ainda.'));
+          }
+          return ListView.builder(
+            itemCount: ritmoProvider.conjuntosSalvos.length,
+            itemBuilder: (context, index) {
+              final conjunto = ritmoProvider.conjuntosSalvos[index];
+              //final numero = index + 1;
+              final listaFracoes =
+                  conjunto.fracoes
+                      .where((f) => f.valorExibicao.isNotEmpty)
+                      .map((f) => f.valorExibicao.replaceAll(':', '/'))
+                      .toList();
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20.0,
+                  vertical: 5.0,
+                ),
+                child: Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(width: 12),
+
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                listaFracoes.join('  |  '),
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        Row(
                           children: [
-                            const SizedBox(width: 12),
+                            Semantics(
+                             
+                              label:
+                                  'Aplicar o conjunto de ritmo selecionado e voltar para a tela principal ao clicar no botão aplicar.',
+                              button: true,
 
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Frações listadas em sequência
-                                  Text(
-                                    listaFracoes.join('  |  '),
-                                    style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  ritmoProvider.aplicarConjuntoSalvo(conjunto);
+                                },
+                                child: const Text('Aplicar'),
                               ),
                             ),
-                            // Botões lado a lado
-                            Row(
-                              children: [
-                                Semantics(
-                                  label:
-                                      'Aplicar o conjunto de ritmo selecionado e voltar para a tela principal.',
-                                  child: ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      ritmoProvider.aplicarConjuntoSalvo(
-                                        conjunto,
-                                      );
-                                    },
 
-                                    child: const Text('Aplicar'),
-                                  ),
-                                ),
+                            const SizedBox(width: 8),
 
-                                const SizedBox(width: 8),
-Semantics(
-  label: 'Excluir conjunto de ritmo.',
-  child: IconButton(
-                                  icon: const Icon(
-                                    Icons.delete,
-                                    color: Colors.red,
-                                  ),
-                                  onPressed: () {
-                                    showDialog(
-                                      context: context,
-                                      builder:
-                                          (ctx) => AlertDialog(
-                                            // ==========================================
-                                            // APLICAÇÃO DO NOVO ESTILO
-                                            // ==========================================
-
-                                            // 1. Bordas arredondadas
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(15.0),
-                                            ),
-
-                                            // 2. Título centralizado
-                                            title: const Text(
-                                              'Confirmar Exclusão',
-                                              textAlign: TextAlign.center,
-                                            ),
-
-                                            // 3. Conteúdo centralizado e com estilo
-                                            content: Text(
-                                              'Deseja excluir "${listaFracoes.join(', ')}"?',
-                                              textAlign: TextAlign.center,
-                                              style: const TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-
-                                            // 4. Alinhamento dos botões (espaçados igualmente)
-                                            actionsAlignment:
-                                                MainAxisAlignment.spaceEvenly,
-
-                                            actions: [
-                                              // Botão de Cancelar (continua como TextButton, mas pode ser estilizado)
-                                              ElevatedButton(
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      Colors
-                                                          .blue, // Cor de fundo vermelha
-                                                  foregroundColor:
-                                                      Colors
-                                                          .white, // Texto branco
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8.0,
-                                                        ),
-                                                  ),
-                                                ),
-                                                onPressed: () {
-                                                  // A lógica de exclusão permanece a mesma
-
-                                                  Navigator.of(ctx).pop();
-                                                },
-                                                child: const Text(
-                                                  'Cancelar',
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                  ),
-                                                ),
-                                              ),
-
-                                              // Botão de Excluir (agora um ElevatedButton vermelho)
-                                              ElevatedButton(
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      Colors
-                                                          .red, // Cor de fundo vermelha
-                                                  foregroundColor:
-                                                      Colors
-                                                          .white, // Texto branco
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8.0,
-                                                        ),
-                                                  ),
-                                                ),
-                                                onPressed: () {
-                                                  // A lógica de exclusão permanece a mesma
-                                                  ritmoProvider
-                                                      .excluirConjuntoSalvo(
-                                                        conjunto.nome,
-                                                      );
-                                                  Navigator.of(ctx).pop();
-                                                },
-                                                child: const Text(
-                                                  'Confirmar',
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
+                            IconButton(
+                              tooltip: 'Excluir o conjunto',
+                              icon: const Icon(
+                                Icons.delete,
+                                color: Colors.red,
+                                semanticLabel: 'Excluir o conjunto',
+                              ),
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder:
+                                      (ctx) => AlertDialog(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            15.0,
                                           ),
-                                    );
-                                  },
-                                ),),
-                                
-                              ],
+                                        ),
+
+                                        title: const Text(
+                                          'Confirmar Exclusão',
+                                          textAlign: TextAlign.center,
+                                        ),
+
+                                        content: Text(
+                                          'Deseja excluir "${listaFracoes.join(', ')}"?',
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+
+                                        actionsAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+
+                                        actions: [
+                                          ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.blue,
+                                              foregroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8.0),
+                                              ),
+                                            ),
+                                            onPressed: () {
+                                              Navigator.of(ctx).pop();
+                                            },
+                                            child: const Text(
+                                              'Cancelar',
+                                              style: TextStyle(fontSize: 16),
+                                            ),
+                                          ),
+
+                                          ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.red,
+                                              foregroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8.0),
+                                              ),
+                                            ),
+                                            onPressed: () {
+                                              ritmoProvider
+                                                  .excluirConjuntoSalvo(
+                                                    conjunto.nome,
+                                                  );
+                                              Navigator.of(ctx).pop();
+                                            },
+                                            child: const Text(
+                                              'Confirmar',
+                                              style: TextStyle(fontSize: 16),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                );
+                              },
                             ),
                           ],
                         ),
-                      ),
+                      ],
                     ),
-                  );
-                },
-              ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 }
 
 ----------------
 [user_interface\widgets\botao_faixa_individual.dart]
-
-// user_interface/widgets/botao_faixa_individual.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -1588,18 +1410,12 @@ class BotaoFaixaIndividual extends StatelessWidget {
     final identidadeFracao = 'faixa ${fracao.id.toUpperCase()}';
 
     return Semantics(
-      // Label principal que descreve o botão e seu estado.
       label: estaSelecionada
           ? '$identidadeFracao, selecionada'
           : 'Selecionar $identidadeFracao',
-      // Dica sobre o que a ação faz.
       hint: 'Toque para alternar a seleção de áudio desta faixa',
-      // Propriedade booleana que informa o estado de seleção.
       selected: estaSelecionada,
-      // Informa que é um botão.
       button: true,
-      // Impede que o leitor de tela leia o texto filho ("A", "B", etc.),
-      // pois nosso label já é mais completo.
       excludeSemantics: true,
     child: ElevatedButton(
       style: ElevatedButton.styleFrom(
@@ -1614,14 +1430,9 @@ class BotaoFaixaIndividual extends StatelessWidget {
               : BorderSide(color: Colors.blueGrey[600]!, width: 1.5),
         ),
         elevation: estaSelecionada ? 6 : 2,
-        // padding: const EdgeInsets.symmetric(horizontal: 1.0) // Padding interno
       ),
       onPressed: () {
-        //print("Botão Individual ${fracao.id} pressionado!");
         ritmoProvider.toggleSelecaoFaixa(fracao.id);
-        // if (!ritmoProvider.estaTocandoGlobalmente) {
-        //   ritmoProvider.iniciarOuPausarReproducaoGlobal();
-        // }
       },
       child: Text(fracao.id.toUpperCase()),
     ),);
@@ -1630,7 +1441,6 @@ class BotaoFaixaIndividual extends StatelessWidget {
 ----------------
 [user_interface\widgets\controles_reproducao.dart]
 
-// user_interface/widgets/controles_reproducao.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/ritmo_provider.dart';
@@ -1643,7 +1453,7 @@ class ControlesReproducao extends StatelessWidget {
     print("Construindo botão ${fracao.id}, selecionada: ${fracao.estaSelecionada}, cor: ${fracao.cor}");
 
     bool estaSelecionada = fracao.estaSelecionada;
-    const double larguraBotaoFactor = 0.5; // Ajuste este valor conforme necessário (0.1 a 1.0)
+    const double larguraBotaoFactor = 0.5; 
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),
@@ -1726,9 +1536,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/fracao_model.dart';
 import '../../services/ritmo_provider.dart';
-// import './teclado_numerico.dart';
-// import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart'; 
+import 'package:flutter/services.dart';
 
 class FaixaInputFracao extends StatelessWidget {
   const FaixaInputFracao({super.key});
@@ -1739,11 +1547,9 @@ class FaixaInputFracao extends StatelessWidget {
 
     return Container(
       child: Column(
-        mainAxisAlignment:
-            MainAxisAlignment.center, // Distribui espaço entre os inputs
+        mainAxisAlignment: MainAxisAlignment.center,
         children:
             ritmoProvider.fracoes.map((fracao) {
-              // Adiciona um padding em volta de cada linha de input para espaçamento
               return Padding(
                 padding: const EdgeInsets.symmetric(
                   vertical: 5.0,
@@ -1809,118 +1615,46 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
     super.dispose();
   }
 
-  // dentro de user_interface/widgets/faixa_input_fracao.dart
-// na classe _LinhaInputFracaoState
-
-// void _abrirTecladoCustomizado(TextEditingController controller) {
-//   showDialog(
-//     context: context,
-//     // AQUI ESTÁ A MÁGICA:
-//     // O builder do showDialog nos dá mais controle sobre o posicionamento.
-//     builder: (ctx) {
-//       return Dialog(
-//         // Alinha o diálogo no topo da tela.
-//         alignment: Alignment.topCenter,
-        
-//         // Remove a elevação (sombra) padrão do diálogo.
-//         elevation: 0,
-        
-//         // Faz o fundo ser transparente para não vermos a caixa branca do diálogo.
-//         backgroundColor: Colors.white,
-        
-//         // Impede que o diálogo ocupe toda a largura da tela.
-//         insetPadding: const EdgeInsets.symmetric(horizontal: 80.0, vertical: 100.0),
-
-//         child: SizedBox(
-//           // Mantemos uma altura fixa para o nosso teclado.
-//           height: 250,
-//           child: TecladoNumerico(
-//             onDigitPressed: (digit) {
-//               controller.text += digit;
-//             },
-//             onBackspacePressed: () {
-//               if (controller.text.isNotEmpty) {
-//                 controller.text =
-//                     controller.text.substring(0, controller.text.length - 1);
-//               }
-//             },
-//             onConfirmPressed: () {
-//               Navigator.of(ctx).pop(); // Fecha o diálogo
-//               _onChanged();
-//             },
-//           ),
-//         ),
-//       );
-//     },
-//   ).whenComplete(() {
-//     // Esta função é chamada quando o diálogo é fechado.
-//     _onChanged();
-//   });
-// }
-
   @override
   Widget build(BuildContext context) {
     final identidadeFracao = 'fração ${widget.fracao.id.toUpperCase()}';
 
-
-    //  void handleTap(TextEditingController controller) {
-    //   final prov = Provider.of<RitmoProvider>(context, listen: false);
-    //   // prov.pararFracaoSeTocando(widget.fracao.id);
-     
-    //   _abrirTecladoCustomizado(controller);
-    // }
-    
-     Widget buildConditionalTextField(
-        TextEditingController controller, String hintText, String labelPart) {
-           
+    Widget buildConditionalTextField(
+      TextEditingController controller,
+      String hintText,
+      String labelPart,
+    ) {
       return SizedBox(
         width: 40,
         height: 32,
         child: Semantics(
-label: '$labelPart para a $identidadeFracao. Valor atual: ${controller.text.isEmpty ? 'vazio' : controller.text}',
-      hint: 'Toque para abrir o teclado númerico e digitar o valor', // Hint simplificado
-      
-      child: TextField(
-        controller: controller,
-        textAlign: TextAlign.center,
-        
-        // --- MUDANÇAS PRINCIPAIS AQUI ---
+          label:
+              '$labelPart para a $identidadeFracao. Valor atual: ${controller.text.isEmpty ? 'vazio' : controller.text}',
+          hint: 'Toque para abrir o teclado númerico e digitar o valor',
 
-        // 1. O campo é SEMPRE editável. Isso permite que o teclado nativo apareça.
-        readOnly: false, 
+          child: TextField(
+            controller: controller,
+            textAlign: TextAlign.center,
+            readOnly: false,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
 
-        // 2. Define o tipo de teclado para numérico (funciona em web e mobile).
-        keyboardType: TextInputType.number, 
+            showCursor: true,
+            onTap: () {
+              Provider.of<RitmoProvider>(
+                context,
+                listen: false,
+              ).pararFracaoSeTocando(widget.fracao.id);
+            },
 
-        // 3. (RECOMENDADO) Garante que o usuário só possa digitar números.
-        inputFormatters: [
-          FilteringTextInputFormatter.digitsOnly
-        ],
-        
-        showCursor: true,
+            onChanged: (_) => _onChanged(),
 
-        // 4. Ao TOCAR no campo, paramos a fração se ela estiver tocando.
-        //    Isso acontece ANTES do teclado aparecer.
-        onTap: () {
-          Provider.of<RitmoProvider>(context, listen: false)
-              .pararFracaoSeTocando(widget.fracao.id);
-        },
-
-        // 5. Ao ALTERAR o texto (digitando), chamamos _onChanged para atualizar o estado.
-        //    Isso agora funciona em TODAS as plataformas.
-        onChanged: (_) => _onChanged(),
-
-            decoration: InputDecoration(
-              hintText: hintText,
-              isDense: true,
-            ),
+            decoration: InputDecoration(hintText: hintText, isDense: true),
           ),
         ),
       );
     }
-    
-    
-    
+
     return Row(
       children: [
         Text(
@@ -1932,60 +1666,18 @@ label: '$labelPart para a $identidadeFracao. Valor atual: ${controller.text.isEm
           ),
         ),
         const SizedBox(width: 8),
- buildConditionalTextField(_numCtrl, 'N', 'Numerador'),
-ExcludeSemantics(child: const Text('/', style: TextStyle(fontSize: 16)),),
-
+        buildConditionalTextField(_numCtrl, 'N', 'Numerador'),
+        ExcludeSemantics(
+          child: const Text('/', style: TextStyle(fontSize: 16)),
+        ),
 
         buildConditionalTextField(_denCtrl, 'D', 'Denominador'),
 
-
-
-      //   Semantics(
-      //     label: 'Numerador para a $identidadeFracao. Valor atual: ${_numCtrl.text.isEmpty ? 'vazio' : _numCtrl.text}',
-      //     button: true,
-      //     hint: 'Toque para abrir o teclado numérico',
-      //     excludeSemantics: true,
-      //     child: SizedBox(
-      //       width: 40,
-      //       height: 32,
-      //       child: TextField(
-      //         controller: _numCtrl,
-      //         textAlign: TextAlign.center,
-      //         readOnly: true, // <-- FALTOU ESTA LINHA! ESSENCIAL.
-      //         showCursor: true,
-      //         onTap: () => _abrirTecladoCustomizado(_numCtrl),
-      //         decoration: const InputDecoration(hintText: 'N', isDense: true),
-      //         // Removido o onChanged daqui, pois é controlado pelo teclado.
-      //       ),
-      //     ),
-      //   ),
-      //   const Text('/', style: TextStyle(fontSize: 16)),
-      //  Semantics(
-      //     label: 'Denominador para a $identidadeFracao. Valor atual: ${_denCtrl.text.isEmpty ? 'vazio' : _denCtrl.text}',
-      //     button: true,
-      //     hint: 'Toque para abrir o teclado numérico',
-      //     excludeSemantics: true,
-      //     child: SizedBox(
-      //       width: 40,
-      //       height: 32,
-      //       child: TextField(
-      //         controller: _denCtrl,
-      //         textAlign: TextAlign.center,
-      //         readOnly: true, // <-- FALTOU ESTA LINHA!
-      //         showCursor: true, // <-- ADICIONADO PARA CONSISTÊNCIA
-      //         onTap: () => _abrirTecladoCustomizado(_denCtrl), // <-- FALTOU ESTA LINHA!
-      //         decoration: const InputDecoration(hintText: 'D', isDense: true),
-      //         // onChanged: (_) => _onChanged(), <-- REMOVIDO
-      //       ),
-      //     ),
-      //   ),
-
         IconButton(
-          // Passamos a cor da fração para o ícone
           icon: Icon(
             Icons.delete_outline,
             size: 20,
-            color: widget.fracao.cor, // Adicione esta linha
+            color: widget.fracao.cor,
             semanticLabel: 'Limpar fração',
           ),
           tooltip: 'Limpar fração',
@@ -2007,8 +1699,6 @@ ExcludeSemantics(child: const Text('/', style: TextStyle(fontSize: 16)),),
 
 ----------------
 [user_interface\widgets\side_menu.dart]
-
-// user_interface/widgets/side_menu.dart
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -2152,28 +1842,28 @@ class SideMenu extends StatelessWidget {
                 },
               ),
               ListTile(
-                title: Semantics(
-                  label: 'Controle de Largura da Coluna',
-                  button: true,
-                  child: const Text("Largura da Coluna"),
-                ),
+                leading: const Icon(Icons.view_column, color: Colors.blue),
+                subtitle: Semantics(
+                  label: 'Ajustar a Largura da Coluna.',
+                  child: Consumer<RitmoProvider>(
+                    builder: (_, provider, __) {
+                      return ExcludeSemantics(
+                        child: Slider(
+                          min: 20,
+                          max: 200,
+                          divisions: 8,
+                          value: provider.subdivisoesPorColunaVisual.toDouble(),
+                          label: 'Largura da Coluna.',
 
-                subtitle: Consumer<RitmoProvider>(
-                  builder: (_, provider, __) {
-                    return Slider(
-                      min: 20,
-                      max: 200,
-
-                      value: provider.subdivisoesPorColunaVisual.toDouble(),
-                      label: provider.subdivisoesPorColunaVisual.toString(),
-                      onChanged: (valor) {
-                        provider.atualizarLarguraColuna(valor.toInt());
-                      },
-                    );
-                  },
+                          onChanged: (valor) {
+                            provider.atualizarLarguraColuna(valor.toInt());
+                          },
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
-
               ListTile(
                 title: Semantics(
                   label: 'Abrir a página com as instruções de uso',
@@ -2192,32 +1882,35 @@ class SideMenu extends StatelessWidget {
                 },
               ),
               ListTile(
-                 
-                  leading: const Icon(Icons.handshake, color: Colors.blue),
-                  title: Semantics(
-                    label: 'Abrir a página de agradecimentos',
-                    child: const Text("Agradecimentos"),
-                  ),
-                  onTap: () => Navigator.push(
+                leading: const Icon(Icons.handshake, color: Colors.blue),
+                title: Semantics(
+                  label: 'Abrir a página de agradecimentos',
+                  child: const Text("Agradecimentos"),
+                ),
+                onTap:
+                    () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => const ThankYouScreen())),
+                        builder: (context) => const ThankYouScreen(),
+                      ),
+                    ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.info_outline, color: Colors.blue),
+                title: Semantics(
+                  label: 'Abrir a página de informações sobre o aplicativo',
+                  child: const Text("Sobre"),
                 ),
-                  ListTile(
-                  leading: const Icon(Icons.info_outline, color: Colors.blue),
-                  title: Semantics(
-                    label: 'Abrir a página de informações sobre o aplicativo',
-                    child: const Text("Sobre"),
-                  ),
-                  onTap: () {
-                    Navigator.pop(context); // Fecha o drawer antes de navegar
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const AboutScreen()),
-                    );
-                  },
-                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AboutScreen(),
+                    ),
+                  );
+                },
+              ),
             ],
           ),
         );
@@ -2227,13 +1920,7 @@ class SideMenu extends StatelessWidget {
 }
 
 ----------------
-[user_interface\widgets\splash.dart]
-
-
-----------------
 [user_interface\widgets\teclado_numerico.dart]
-
-// user_interface/widgets/teclado_numerico.dart
 
 import 'package:flutter/material.dart';
 
@@ -2251,12 +1938,11 @@ class TecladoNumerico extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Envolvemos em um SafeArea para evitar áreas como a "home bar" do iOS/Android.
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
-          mainAxisSize: MainAxisSize.min, // Faz a coluna ter o tamanho dos filhos
+          mainAxisSize: MainAxisSize.min,
           children: [
             _buildRow(['1', '2', '3']),
             _buildRow(['4', '5', '6']),
@@ -2268,7 +1954,6 @@ class TecladoNumerico extends StatelessWidget {
     );
   }
 
-  // Helper para criar uma linha de botões numéricos
   Widget _buildRow(List<String> digits) {
     return Expanded(
       child: Row(
@@ -2278,21 +1963,17 @@ class TecladoNumerico extends StatelessWidget {
     );
   }
 
-  // Helper para criar a linha inferior com botões especiais
   Widget _buildSpecialRow() {
     return Expanded(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Botão de Apagar
           _buildActionButton(
             icon: Icons.backspace_outlined,
             onPressed: onBackspacePressed,
             label: 'Apagar último dígito',
           ),
-          // Botão 0
           _buildDigitButton('0'),
-          // Botão OK
           _buildActionButton(
             icon: Icons.check_circle_outline,
             onPressed: onConfirmPressed,
@@ -2304,7 +1985,6 @@ class TecladoNumerico extends StatelessWidget {
     );
   }
 
-  // Helper para criar o botão de um dígito
   Widget _buildDigitButton(String digit) {
     return Expanded(
       child: Semantics(
@@ -2327,7 +2007,6 @@ class TecladoNumerico extends StatelessWidget {
     );
   }
 
-  // Helper para criar os botões de ação (Apagar, OK)
   Widget _buildActionButton({required IconData icon, required VoidCallback onPressed, required String label, Color? color}) {
     return Expanded(
       child: Semantics(
@@ -2353,7 +2032,6 @@ class TecladoNumerico extends StatelessWidget {
 ----------------
 [user_interface\widgets\visualizador_ritmo.dart]
 
-// user_interface/widgets/visualizador_ritmo.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/fracao_model.dart';
@@ -2402,11 +2080,6 @@ class _VisualizadorRitmoState extends State<VisualizadorRitmo>
       vsync: this,
       duration: Duration(milliseconds: intervalo > 0 ? intervalo : 1000), 
     );
-    // ..addListener(() {
-      
-    //     setState(() {});
-    //   });
-   
   
     _previousBolinhasMostradas[fracao.id] = provider.bolinhasMostradas[fracao.id] ?? 0;
   }
@@ -2460,10 +2133,6 @@ class _VisualizadorRitmoState extends State<VisualizadorRitmo>
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<RitmoProvider>(context, listen: false);
-
-    // final Map<String, double> animationProgress =
-    //     _controllers.map((key, value) => MapEntry(key, value.value));
-
     final repaintListenable = Listenable.merge(_controllers.values.toList());
 
     return LayoutBuilder(
@@ -2498,23 +2167,13 @@ class _VisualizadorRitmoState extends State<VisualizadorRitmo>
   }
 }
 
-
-
-
-
-
 class PintorRitmo extends CustomPainter {
   final List<FracaoModel> fracoes;
   final int subdivisoesPorColuna;
-  // final bool estaTocandoGlobalmente;
   final double offsetHorizontalTicks;
   final Size canvasSize;
   final Map<String, int> bolinhasMostradas;
-
   final Map<String, AnimationController> controllers;
-  //  final Map<String, double> animationProgress;
-
-
   static const double RAIO_BOLINHA = 7.0;
   static const double ESPACO_SEGMENTO = 7.0;
   static const double ESPESSURA_LINHA = 1.5;
@@ -2588,18 +2247,10 @@ class PintorRitmo extends CustomPainter {
     for (int row = 0; row < fracoes.length; row++) {
       final fracao = fracoes[row];
       if (fracao.numerador == null || fracao.denominador == null) continue;
-
-
       final int numBolinhasTotal = bolinhasMostradas[fracao.id] ?? 0;
       if (numBolinhasTotal <= 0) continue;
-
-
       final double yCenter = margemV + alturaFaixa * row + alturaFaixa / 2;
-
-
-    
-      //final double progress = animationProgress[fracao.id] ?? 0.0;
-     final double progress = controllers[fracao.id]?.value ?? 0.0;
+      final double progress = controllers[fracao.id]?.value ?? 0.0;
      
       Offset posAnterior, posProxima;
 
@@ -2616,10 +2267,8 @@ class PintorRitmo extends CustomPainter {
      
     
       final Offset pontoFinalDaLinha = Offset.lerp(posAnterior, posProxima, progress)!;
-
-
-    
       final Paint paintLine = Paint()..color = fracao.cor.withOpacity(0.8)..strokeWidth = ESPESSURA_LINHA..strokeCap = StrokeCap.round;
+
       canvas.drawLine(Offset(0, yCenter), pontoFinalDaLinha, paintLine);
 
       final int numBolinhasCompletas = numBolinhasTotal - 1;
@@ -2640,8 +2289,6 @@ class PintorRitmo extends CustomPainter {
       }
     }
   }
-
-
 
 
   @override
