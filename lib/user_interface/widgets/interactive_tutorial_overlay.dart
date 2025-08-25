@@ -5,6 +5,7 @@ class TutorialStep {
   final String text;
   final Alignment alignment;
   final EdgeInsets padding;
+  
 
   TutorialStep({
     required this.key,

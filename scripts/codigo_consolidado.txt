@@ -509,6 +509,44 @@ class RitmoProvider with ChangeNotifier {
 }
 
 ----------------
+[services\tutorial_service.dart]
+
+// services/tutorial_service.dart
+
+import 'package:shared_preferences/shared_preferences.dart';
+
+class TutorialService {
+  // Chave para controlar se a tela de orientação já foi exibida
+  static const _orientationShownKey = 'orientation_shown';
+  
+  // Chave para controlar se o tutorial interativo da tela principal foi concluído
+  static const _mainTutorialCompletedKey = 'main_tutorial_completed';
+
+  /// Verifica se a tela de orientação já foi mostrada.
+  Future<bool> isOrientationShown() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_orientationShownKey) ?? false;
+  }
+
+  /// Marca a tela de orientação como vista.
+  Future<void> markOrientationAsShown() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_orientationShownKey, true);
+  }
+
+  /// Verifica se o tutorial principal já foi concluído.
+  Future<bool> isMainTutorialCompleted() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_mainTutorialCompletedKey) ?? false;
+  }
+
+  /// Marca o tutorial principal como concluído.
+  Future<void> markMainTutorialAsCompleted() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_mainTutorialCompletedKey, true);
+  }
+}
+----------------
 [user_interface\screens\about.dart]
 
 import 'package:flutter/material.dart';
@@ -884,16 +922,88 @@ class UsageInstructionsScreen extends StatelessWidget {
 }
 
 ----------------
+[user_interface\screens\orientation_screen.dart]
+
+import 'package:flutter/material.dart';
+import '../../../services/tutorial_service.dart';
+import 'tela_principal.dart';
+
+class OrientationScreen extends StatelessWidget {
+  const OrientationScreen({super.key});
+
+  Future<void> _onContinue(BuildContext context) async {
+    final tutorialService = TutorialService();
+    await tutorialService.markOrientationAsShown();
+    if (context.mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const TelaPrincipal()),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const String titulo = 'Orientação do Dispositivo.';
+    const String conteudo = 'Antes de utilizar o aplicativo, posicione o celular na sua mão, em modo paisagem, girando no sentido anti-horário.';
+    const String instrucaoAcessibilidade = 'Clique no botão OK abaixo para fechar esta tela.';
+    final String fullSemanticLabel = '$titulo $conteudo $instrucaoAcessibilidade';
+
+    return Scaffold(
+      backgroundColor: const Color.fromRGBO(220, 247, 255, 1.0),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Semantics(
+            label: fullSemanticLabel,
+            container: true,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const ExcludeSemantics(
+                  child: Text(
+                    titulo,
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const ExcludeSemantics(
+                  child: Text(
+                    conteudo,
+                    style: TextStyle(fontSize: 18, height: 1.5),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 40),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+                    textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: () => _onContinue(context),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+----------------
 [user_interface\screens\tela_principal.dart]
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
+import 'package:ritmatica_app/services/tutorial_service.dart';
 import '../../services/ritmo_provider.dart';
 import '../../user_interface/widgets/faixa_input_fracao.dart';
 import '../../user_interface/widgets/botao_faixa_individual.dart';
 import '../../user_interface/widgets/visualizador_ritmo.dart';
 import '../../user_interface/widgets/side_menu.dart';
+import '../../user_interface/widgets/interactive_tutorial_overlay.dart';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 
@@ -907,84 +1017,120 @@ class TelaPrincipal extends StatefulWidget {
 class _TelaPrincipalState extends State<TelaPrincipal> {
   final TextEditingController _controladorNomeSalvar = TextEditingController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  // late FlutterTts _flutterTts;
+
+  bool _showTutorial = false;
+  final GlobalKey _keyGrupoInputs = GlobalKey();
+  final GlobalKey _keyVisualizador = GlobalKey();
+  final GlobalKey _keyBotaoB1 = GlobalKey();
+  final GlobalKey _keyPlayGlobal = GlobalKey();
+  final GlobalKey _keySlider = GlobalKey();
+  final GlobalKey _keyMenu = GlobalKey();
+  final GlobalKey _keyCentral = GlobalKey();
+
+   final TutorialService _tutorialService = TutorialService();
 
   @override
   void initState() {
     super.initState();
+    _checkIfTutorialNeeded();
 
     if (!kIsWeb) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _mostrarDialogoOrientacao(context);
       });
     }
   }
 
-  Future<void> _mostrarDialogoOrientacao(BuildContext context) async {
-    const String titulo = 'Aviso: Orientação do Dispositivo.';
-    const String conteudo =
-        'Antes de utilizar o aplicativo, posicione o celular na sua mão, em modo paisagem, girando no sentido anti-horário.';
-    const String acao = 'Toque no botão OK para fechar este aviso.';
+   Future<void> _checkIfTutorialNeeded() async {
+    final bool tutorialCompleted = await _tutorialService.isMainTutorialCompleted();
+    if (!tutorialCompleted) {
+      if (mounted) {
+        setState(() {
+          _showTutorial = true;
+        });
+      }
+    }
+  }
 
-    final String fullSemanticLabel = '$titulo $conteudo $acao';
 
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          semanticLabel: fullSemanticLabel,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15.0),
-          ),
-
-          title: ExcludeSemantics(
-            child: const Text(
-              'Orientação do Dispositivo',
-              textAlign: TextAlign.center,
-            ),
-          ),
-
-          content: SingleChildScrollView(
-            child: Text(
-              conteudo,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16),
-            ),
-          ),
-          actionsAlignment: MainAxisAlignment.center,
-
-          actions: <Widget>[
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 50,
-                  vertical: 10,
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-              ),
-              child: const Text('OK'),
-
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
+  Future<void> _markTutorialAsCompleted() async {
+    await _tutorialService.markMainTutorialAsCompleted();
+    if (mounted) {
+      setState(() {
+        _showTutorial = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final ritmoProvider = Provider.of<RitmoProvider>(context);
+    final List<TutorialStep> tutorialSteps = [
+      TutorialStep(
+        key: _keyCentral,
+        text:
+            'Bem-vindo ao Ritmática! Este tutorial guiará você pelas funcionalidades principais. Use os botões de próximo e anterior na parte inferior da tela para navegar ou feche o tutorial no botão Pular Tutorial.',
+        alignment: Alignment.center,
+      ),
+      TutorialStep(
+        key: _keyGrupoInputs,
+        text:
+            'Passo 1 de 6: Controles de Ritmo. Na parte inferior da tela, estão as três faixas de controle: B1, B2 e B3. '
+            'Cada uma possui dois campos de texto. O primeiro campo, "N", é o intervalo de tempo. O segundo, "D", é o número de batidas. Clique em no botão inferior próximo para continuar',
+        alignment: Alignment.topCenter,
+        padding: const EdgeInsets.only(top: 80),
+      ),
+      TutorialStep(
+        key: _keyVisualizador,
+        text:
+            'Passo 2 de 6: Visualizador de Ritmo. Na área superior e maior da tela, a animação do seu ritmo será exibida. '
+            'Cada batida sonora corresponderá a uma bolinha colorida aparecendo nesta área. Clique em no botão inferior próximo para continuar',
+        alignment: Alignment.bottomCenter,
+        padding: const EdgeInsets.only(bottom: 120),
+      ),
+      TutorialStep(
+        key: _keyBotaoB1,
+        text:
+            'Passo 3 de 6: Ativar uma Faixa. Abaixo dos campos de texto, cada faixa tem um botão de ativação. '
+            'Toque duas vezes no botão para ativá-lo. Apenas as faixas ativas serão reproduzidas. Clique em no botão inferior próximo para continuar',
+        alignment: Alignment.topCenter,
+        padding: const EdgeInsets.only(top: 100),
+      ),
+      TutorialStep(
+        key: _keyPlayGlobal,
+        text:
+            'Passo 4 de 6: Botão de Play e Stop. Localizado à esquerda da barra deslizante, este botão inicia e para a reprodução de todas as faixas ativas. '
+            'O leitor de tela anunciará se é "Play" ou "Stop". Clique em no botão inferior próximo para continuar',
+        alignment: Alignment.topCenter,
+        padding: const EdgeInsets.only(top: 50, right: 200),
+      ),
+      TutorialStep(
+        key: _keySlider,
+        text:
+            'Passo 5 de 6: Barra de Navegação. No centro da tela, entre os botões de play e setas, há uma barra deslizante. '
+            'Use-a para navegar pela linha do tempo da animação. As setas ao lado movem a visualização em blocos. Clique em no botão inferior próximo para continuar',
+        alignment: Alignment.topCenter,
+        padding: const EdgeInsets.only(top: 100, left: 150),
+      ),
+      TutorialStep(
+        key: _keyMenu,
+        text:
+            'Passo 6 de 6: Menu Principal. Localizado no canto superior esquerdo da tela, este botão abre o menu de navegação com opções para salvar, carregar ritmos e acessar as configurações. Clique em no botão inferior próximo para continuar',
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+      ),
+      TutorialStep(
+        key: _keyCentral,
+        text: 'Tutorial concluído! Boa exploração! Clique no botão Finalizar',
+        alignment: Alignment.center,
+      ),
+      TutorialStep(
+        key: _keyCentral,
+        text:
+            'Dica de Uso: Para explorar a proporção, crie um ritmo "2 para 3" na faixa B1 e um ritmo "4 para 6" na faixa B2. '
+            'Ao tocar as duas juntas, você ouvirá que elas possuem a mesma cadência rítmica, ou seja, o mesmo "padrão de batidas".',
+        alignment: Alignment.center,
+      ),
+    ];
 
     const int maxColunasIniciaisSlider = 100;
     final double initialMaxTicks =
@@ -999,11 +1145,10 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
       resizeToAvoidBottomInset: false,
       drawer: SideMenu(
         onSalvarRitmo: () async {
-          final bool foiSalvo =
-              await Provider.of<RitmoProvider>(
-                context,
-                listen: false,
-              ).salvarConjuntoAtual();
+          final bool foiSalvo = await Provider.of<RitmoProvider>(
+            context,
+            listen: false,
+          ).salvarConjuntoAtual();
 
           if (!context.mounted) return;
           if (foiSalvo) {
@@ -1025,167 +1170,189 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
           }
         },
       ),
-
-      body: Padding(
-        padding: const EdgeInsets.all(1.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Semantics(
-                  label: 'Abrir menu de navegação',
-                  button: true,
-                  child: IconButton(
-                    icon: const Icon(Icons.menu),
-                    iconSize: 30,
-                    tooltip: 'Abrir menu',
-                    onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                  ),
-                ),
-
-                const Spacer(),
-              ],
-            ),
-            Expanded(
-              flex: 6,
-              child: Column(
+      body: Stack(
+        children: [
+        
+          Center(child: SizedBox(key: _keyCentral, width: 1, height: 1)),
+          AbsorbPointer(
+            absorbing: _showTutorial,
+            child: Padding(
+              padding: const EdgeInsets.all(1.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    flex: 2,
-                    child: VisualizadorRitmo(
-                      estaTocando: ritmoProvider.estaTocandoGlobalmente,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-
-                  Row(
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Semantics(
-                        label:
-                            ritmoProvider.estaTocandoGlobalmente
-                                ? 'Botão Stop para parar a reprodução'
-                                : 'Botão Play para iniciar a reprodução',
-                        hint:
-                            ritmoProvider.estaTocandoGlobalmente
-                                ? 'Interrompe a reprodução global do ritmo'
-                                : 'Inicia a reprodução global do ritmo',
+                        label: 'Abrir menu de navegação',
                         button: true,
-                        excludeSemantics: true,
                         child: IconButton(
-                          icon: Icon(
-                            ritmoProvider.estaTocandoGlobalmente
-                                ? Icons.stop_circle_outlined
-                                : Icons.play_circle_outline,
-                          ),
-                          iconSize: 50,
-                          color:
-                              ritmoProvider.estaTocandoGlobalmente
-                                  ? Colors.redAccent.shade200
-                                  : Colors.white,
-                          tooltip:
-                              ritmoProvider.estaTocandoGlobalmente
-                                  ? 'Parar'
-                                  : 'Tocar',
-                          onPressed: () {
-                            ritmoProvider.iniciarOuPausarReproducaoGlobal();
-                          },
+                          key: _keyMenu,
+                          icon: const Icon(Icons.menu),
+                          iconSize: 30,
+                          tooltip: 'Abrir menu',
+                          onPressed: () =>
+                              _scaffoldKey.currentState?.openDrawer(),
                         ),
                       ),
-
-                      const SizedBox(width: 12),
-                      Semantics(
-                        label:
-                            'Botão para retroceder 10 colunas na tela de animação do ritmo',
-                        button: true,
-                        excludeSemantics: true,
-                        child: IconButton(
-                          icon: const Icon(Icons.arrow_back_ios),
-                          tooltip: 'Retroceder',
-                          onPressed: () {
-                            ritmoProvider.retrocederScroll(colunas: 10);
-                          },
-                        ),
-                      ),
-                      Expanded(
-                        child: Slider(
-                          value: sliderValue,
-                          min: 0.0,
-                          max: sliderMaximum,
-                          divisions:
-                              (sliderMaximum > 0)
-                                  ? (sliderMaximum /
-                                          (ritmoProvider
-                                                      .subdivisoesPorColunaVisual >
-                                                  0
-                                              ? ritmoProvider
-                                                  .subdivisoesPorColunaVisual
-                                              : 1))
-                                      .round()
-                                      .clamp(1, 100000)
-                                  : 1,
-                          label:
-                              "Coluna: ${(currentOffset / ritmoProvider.subdivisoesPorColunaVisual).floor()}",
-                          onChanged: (double value) {
-                            ritmoProvider.definirOffsetHorizontalScroll(value);
-                          },
-                        ),
-                      ),
-                      Semantics(
-                        label:
-                            'Botão para avançar 10 colunas na tela de animação do ritmo',
-                        button: true,
-                        excludeSemantics: true,
-                        child: IconButton(
-                          icon: const Icon(Icons.arrow_forward_ios),
-                          tooltip: 'Avançar',
-                          onPressed: () {
-                            ritmoProvider.avancarScroll(colunas: 10);
-                          },
-                        ),
-                      ),
+                      const Spacer(),
                     ],
                   ),
-
                   Expanded(
-                    flex: 1,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children:
-                            ritmoProvider.fracoes.map((fracao) {
-                              return FocusTraversalGroup(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Semantics(
-                                      sortKey: const OrdinalSortKey(1.0),
-                                      child: LinhaInputFracao(fracao: fracao),
-                                    ),
-                                    const SizedBox(height: 1),
-
-                                    Semantics(
-                                      sortKey: const OrdinalSortKey(2.0),
-                                      child: BotaoFaixaIndividual(
-                                        fracao: fracao,
-                                      ),
-                                    ),
-                                  ],
+                    flex: 6,
+                    child: Column(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: Container(
+                            key: _keyVisualizador,
+                            child: VisualizadorRitmo(
+                              estaTocando: ritmoProvider.estaTocandoGlobalmente,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Semantics(
+                              label: ritmoProvider.estaTocandoGlobalmente
+                                  ? 'Botão Stop para parar a reprodução'
+                                  : 'Botão Play para iniciar a reprodução',
+                              hint: ritmoProvider.estaTocandoGlobalmente
+                                  ? 'Interrompe a reprodução global do ritmo'
+                                  : 'Inicia a reprodução global do ritmo',
+                              button: true,
+                              excludeSemantics: true,
+                              child: IconButton(
+                                key: _keyPlayGlobal,
+                                icon: Icon(
+                                  ritmoProvider.estaTocandoGlobalmente
+                                      ? Icons.stop_circle_outlined
+                                      : Icons.play_circle_outline,
                                 ),
-                              );
-                            }).toList(),
-                      ),
+                                iconSize: 50,
+                                color: ritmoProvider.estaTocandoGlobalmente
+                                    ? Colors.redAccent.shade200
+                                    : Colors.white,
+                                tooltip: ritmoProvider.estaTocandoGlobalmente
+                                    ? 'Parar'
+                                    : 'Tocar',
+                                onPressed: () {
+                                  ritmoProvider
+                                      .iniciarOuPausarReproducaoGlobal();
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Semantics(
+                              label:
+                                  'Botão para retroceder 10 colunas na tela de animação do ritmo',
+                              button: true,
+                              excludeSemantics: true,
+                              child: IconButton(
+                                icon: const Icon(Icons.arrow_back_ios),
+                                tooltip: 'Retroceder',
+                                onPressed: () {
+                                  ritmoProvider.retrocederScroll(colunas: 10);
+                                },
+                              ),
+                            ),
+                            Expanded(
+                              child: Slider(
+                                key: _keySlider,
+                                value: sliderValue,
+                                min: 0.0,
+                                max: sliderMaximum,
+                                divisions: (sliderMaximum > 0)
+                                    ? (sliderMaximum /
+                                            (ritmoProvider
+                                                        .subdivisoesPorColunaVisual >
+                                                    0
+                                                ? ritmoProvider
+                                                    .subdivisoesPorColunaVisual
+                                                : 1))
+                                        .round()
+                                        .clamp(1, 100000)
+                                    : 1,
+                                label:
+                                    "Coluna: ${(currentOffset / ritmoProvider.subdivisoesPorColunaVisual).floor()}",
+                                onChanged: (double value) {
+                                  ritmoProvider
+                                      .definirOffsetHorizontalScroll(value);
+                                },
+                              ),
+                            ),
+                            Semantics(
+                              label:
+                                  'Botão para avançar 10 colunas na tela de animação do ritmo',
+                              button: true,
+                              excludeSemantics: true,
+                              child: IconButton(
+                                icon: const Icon(Icons.arrow_forward_ios),
+                                tooltip: 'Avançar',
+                                onPressed: () {
+                                  ritmoProvider.avancarScroll(colunas: 10);
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        Expanded(
+                          flex: 1,
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 8.0),
+                            child: Row(
+                              key: _keyGrupoInputs,
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: ritmoProvider.fracoes.map((fracao) {
+                                GlobalKey? botaoKey;
+                                if (fracao.id == 'b1') {
+                                  botaoKey = _keyBotaoB1;
+                                }
+
+                                return FocusTraversalGroup(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Semantics(
+                                        sortKey: const OrdinalSortKey(1.0),
+                                        child: LinhaInputFracao(
+                                          fracao: fracao,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Semantics(
+                                        sortKey: const OrdinalSortKey(2.0),
+                                        child: BotaoFaixaIndividual(
+                                          fracao: fracao,
+                                          key: botaoKey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          if (_showTutorial)
+            InteractiveTutorialOverlay(
+              steps: tutorialSteps,
+              onFinish: _markTutorialAsCompleted,
+              onSkip: _markTutorialAsCompleted,
+            ),
+        ],
       ),
     );
   }
@@ -1196,7 +1363,6 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
     super.dispose();
   }
 }
-
 ----------------
 [user_interface\screens\tela_ritmos_salvos.dart]
 
@@ -1385,6 +1551,192 @@ class TelaRitmosSalvos extends StatelessWidget {
   }
 }
 
+----------------
+[user_interface\screens\tutorial_screen.dart]
+
+import 'package:flutter/material.dart';
+
+
+
+class TutorialScreen extends StatelessWidget {
+  const TutorialScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Tutorial: Entendendo o Ritmática"),
+        backgroundColor: Colors.blue,
+        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Container(
+        color: const Color.fromRGBO(220, 247, 255, 1.0),
+        child: ListView(
+          padding: const EdgeInsets.all(16.0),
+          children: [
+            _buildSectionCard(
+              context,
+              title: 'O que é o Ritmática?',
+              content: const Text(
+                'Bem-vindo ao Ritmática! Este não é apenas um aplicativo de música, mas uma ferramenta para explorar a matemática dos ritmos de uma forma visual e sonora.\n\n'
+                'Ele foi projetado para ser uma experiência multissensorial, ajudando a entender conceitos de razão e proporção de maneira intuitiva.',
+                style: TextStyle(fontSize: 16, height: 1.5),
+              ),
+            ),
+            _buildSectionCard(
+              context,
+              title: 'O Conceito Principal: Criando um Ritmo',
+              content: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Cada faixa (B1, B2, B3) possui dois campos para criar um ritmo. A relação entre esses dois números é a base de tudo:',
+                    style: TextStyle(fontSize: 16, height: 1.5),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildConceptBox(
+                    'Primeiro Campo (N): Intervalo de Tempo',
+                    'Representa "em quanto tempo" um ciclo rítmico acontece. Um número maior significa um ciclo mais longo e, portanto, um ritmo mais lento.',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildConceptBox(
+                    'Segundo Campo (D): Número de Batidas',
+                    'Representa "quantas batidas" (sons e bolinhas) acontecem dentro daquele intervalo de tempo.',
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Exemplo Prático:',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Se você inserir "2 : 3", significa que:',
+                    style: TextStyle(fontSize: 16, height: 1.5),
+                  ),
+                  _buildBulletPoint(
+                      'Em um intervalo de 2 unidades de tempo, você ouvirá 3 batidas.'),
+                  _buildBulletPoint(
+                      'Visualmente, você verá 3 bolinhas coloridas aparecendo de forma regular ao longo de um espaço que representa essas 2 unidades de tempo.'),
+                ],
+              ),
+            ),
+            _buildSectionCard(
+              context,
+              title: 'Explorando Polirritmos',
+              content: const Text(
+                'Quando você ativa mais de uma faixa ao mesmo tempo (por exemplo, B1 e B2), você cria um "polirritmo".\n\n'
+                'Isso permite comparar visual e sonoramente duas razões diferentes. Como a relação 2:3 soa e se parece em comparação com 4:5? Experimente e descubra as relações entre elas!',
+                style: TextStyle(fontSize: 16, height: 1.5),
+              ),
+            ),
+             _buildSectionCard(
+              context,
+              title: 'Descobrindo a Proporção (Ritmos Equivalentes)',
+              content: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   const Text(
+                    'Uma das ideias mais importantes que você pode explorar é a proporção. Tente inserir os seguintes ritmos em duas faixas diferentes:',
+                    style: TextStyle(fontSize: 16, height: 1.5),
+                  ),
+                   const SizedBox(height: 10),
+                  _buildBulletPoint('Faixa B1: 2 : 3'),
+                  _buildBulletPoint('Faixa B2: 4 : 6'),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Você perceberá que o ritmo fundamental é o mesmo! A faixa 4:6 é apenas uma versão mais lenta da 2:3, mas a proporção entre o tempo e as batidas (2 para 3) foi mantida. Isso é proporção em ação!',
+                     style: TextStyle(fontSize: 16, height: 1.5),
+                  ),
+                ],
+              ),
+            ),
+             _buildSectionCard(
+              context,
+              title: 'Para Acessibilidade',
+              content: const Text(
+                'O Ritmática foi pensado para todos. Se você possui deficiência visual, os sons são sua principal ferramenta para perceber a relação entre as frações. Se possui deficiência auditiva, a animação das bolinhas e das linhas no visualizador cumpre o mesmo papel, mostrando visualmente a estrutura do ritmo.',
+                 style: TextStyle(fontSize: 16, height: 1.5),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionCard(BuildContext context,
+      {required String title, required Widget content}) {
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.only(bottom: 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.blueAccent,
+              ),
+            ),
+            const Divider(height: 20),
+            content,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConceptBox(String title, String description) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            description,
+            style: const TextStyle(fontSize: 15, color: Colors.black87),
+          ),
+        ],
+      ),
+    );
+  }
+
+   Widget _buildBulletPoint(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("• ", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 16, height: 1.5))),
+        ],
+      ),
+    );
+  }
+}
+----------------
+[user_interface\screens\package.flutter\material.dart]
+
+// TODO Implement this library.
 ----------------
 [user_interface\widgets\botao_faixa_individual.dart]
 
@@ -1667,9 +2019,13 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
         ),
         const SizedBox(width: 8),
         buildConditionalTextField(_numCtrl, 'N', 'Numerador'),
-        ExcludeSemantics(
-          child: const Text('/', style: TextStyle(fontSize: 16)),
+        Semantics(
+        label: 'Está para', // O que será lido em voz alta
+        child: const Text( // O que será exibido na tela
+          ':',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
+      ),
 
         buildConditionalTextField(_denCtrl, 'D', 'Denominador'),
 
@@ -1698,6 +2054,194 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
 }
 
 ----------------
+[user_interface\widgets\interactive_tutorial_overlay.dart]
+
+import 'package:flutter/material.dart';
+
+class TutorialStep {
+  final GlobalKey key;
+  final String text;
+  final Alignment alignment;
+  final EdgeInsets padding;
+  
+
+  TutorialStep({
+    required this.key,
+    required this.text,
+    this.alignment = Alignment.center,
+    this.padding = const EdgeInsets.all(8.0),
+  });
+}
+
+class InteractiveTutorialOverlay extends StatefulWidget {
+  final List<TutorialStep> steps;
+  final VoidCallback onFinish;
+  final VoidCallback onSkip;
+
+  const InteractiveTutorialOverlay({
+    super.key,
+    required this.steps,
+    required this.onFinish,
+    required this.onSkip,
+  });
+
+  @override
+  State<InteractiveTutorialOverlay> createState() =>
+      _InteractiveTutorialOverlayState();
+}
+
+class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay> {
+  int _currentStep = 0;
+  Rect? _highlightRect;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _calculateHighlight());
+  }
+
+  void _calculateHighlight() {
+    final key = widget.steps[_currentStep].key;
+    final RenderBox? renderBox =
+        key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox != null) {
+      final size = renderBox.size;
+      final offset = renderBox.localToGlobal(Offset.zero);
+      setState(() {
+        _highlightRect = Rect.fromLTWH(
+          offset.dx,
+          offset.dy,
+          size.width,
+          size.height,
+        );
+      });
+    }
+  }
+
+  void _nextStep() {
+    if (_currentStep < widget.steps.length - 1) {
+      setState(() {
+        _currentStep++;
+      });
+      _calculateHighlight();
+    } else {
+      widget.onFinish();
+    }
+  }
+
+  void _previousStep() {
+    if (_currentStep > 0) {
+      setState(() {
+        _currentStep--;
+      });
+      _calculateHighlight();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_highlightRect == null) {
+      return const SizedBox.shrink(); 
+    }
+
+    final step = widget.steps[_currentStep];
+
+    return Material(
+      color: Colors.transparent,
+      child: Stack(
+        children: [
+          CustomPaint(
+            size: MediaQuery.of(context).size,
+            painter: HolePainter(
+              hole: _highlightRect!.inflate(10.0), 
+            ),
+          ),
+          Positioned.fill(
+            child: Align(
+              alignment: step.alignment,
+              child: Padding(
+                padding: step.padding,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.blueAccent,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: const [
+                      BoxShadow(
+                          color: Colors.black54,
+                          blurRadius: 10,
+                          spreadRadius: 2)
+                    ],
+                  ),
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      step.text,
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          Positioned(
+            bottom: 20,
+            left: 20,
+            right: 20,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                TextButton(
+                  onPressed: widget.onSkip,
+                  child: const Text('Pular Tutorial',
+                      style: TextStyle(color: Colors.white, fontSize: 16)),
+                ),
+                Row(
+                  children: [
+                    if (_currentStep > 0)
+                      ElevatedButton(
+                        onPressed: _previousStep,
+                        child: const Text('Anterior'),
+                      ),
+                    const SizedBox(width: 10),
+                    ElevatedButton(
+                      onPressed: _nextStep,
+                      child: Text(_currentStep == widget.steps.length - 1
+                          ? 'Finalizar'
+                          : 'Próximo'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class HolePainter extends CustomPainter {
+  final Rect hole;
+
+  HolePainter({required this.hole});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.black.withOpacity(0.7);
+    final screenPath = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    final holePath = Path()..addRRect(RRect.fromRectAndRadius(hole, const Radius.circular(15)));
+    final path = Path.combine(PathOperation.difference, screenPath, holePath);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant HolePainter oldDelegate) {
+    return oldDelegate.hole != hole;
+  }
+}
+----------------
 [user_interface\widgets\side_menu.dart]
 
 import 'package:flutter/material.dart';
@@ -1705,6 +2249,7 @@ import 'package:provider/provider.dart';
 import 'package:ritmatica_app/user_interface/screens/about.dart';
 import 'package:ritmatica_app/user_interface/screens/agradecimentos.dart';
 import 'package:ritmatica_app/user_interface/screens/instrucoes.dart';
+import 'package:ritmatica_app/user_interface/screens/tutorial_screen.dart';
 import '../../services/ritmo_provider.dart';
 import '../../user_interface/screens/tela_ritmos_salvos.dart'; // Para navegação
 
@@ -1838,6 +2383,23 @@ class SideMenu extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const TelaRitmosSalvos()),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.school_outlined, color: Colors.blue), 
+                title: Semantics(
+                  label: 'Abrir tutorial para entender os conceitos do aplicativo',
+                  button: true,
+                  child: const Text("Entendendo o Ritmática"),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const TutorialScreen(), 
+                    ),
                   );
                 },
               ),

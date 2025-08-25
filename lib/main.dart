@@ -1,22 +1,44 @@
+// main.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import './services/ritmo_provider.dart';
+import './services/tutorial_service.dart'; 
+import './user_interface/screens/orientation_screen.dart'; 
 import './user_interface/screens/tela_principal.dart';
 
 void main() async {
+
   WidgetsFlutterBinding.ensureInitialized();
+
+  
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [
+  SystemUiOverlay.bottom
+]);
 
-  runApp(const MeuApp());
+  final tutorialService = TutorialService();
+  final bool orientationHasBeenShown = await tutorialService.isOrientationShown();
+  
+
+  runApp(MeuApp(
+    // Passamos o resultado para o widget principal
+    showOrientationScreen: !orientationHasBeenShown,
+  ));
 }
 
 class MeuApp extends StatelessWidget {
-  const MeuApp({super.key});
+  // Variável para receber a decisão da tela inicial
+  final bool showOrientationScreen;
+
+  const MeuApp({
+    super.key,
+    required this.showOrientationScreen,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -26,10 +48,14 @@ class MeuApp extends StatelessWidget {
         title: 'Ritmatica',
         theme: ThemeData(
           primarySwatch: Colors.cyan,
-          brightness: Brightness.light, 
-          scaffoldBackgroundColor: const Color(0xFF54ADFF), 
+          brightness: Brightness.light,
+          scaffoldBackgroundColor: const Color(0xFF54ADFF),
         ),
-        home: const TelaPrincipal(),
+        // --- LÓGICA CONDICIONAL APLICADA AQUI ---
+        home: showOrientationScreen
+            ? const OrientationScreen() // Se for a primeira vez, mostra a orientação
+            : const TelaPrincipal(),   // Caso contrário, vai para a tela principal
+        // ------------------------------------------
         debugShowCheckedModeBanner: false,
       ),
     );
