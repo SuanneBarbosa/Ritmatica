@@ -13,11 +13,11 @@ class RitmoProvider with ChangeNotifier {
   List<ConjuntoRitmoModel> _conjuntosSalvos = [];
   final Map<String, Timer> _timersPorFracao = {};
   final Map<String, List<AudioPlayer>> _playerPool = {
-    'b1': List.generate(4, (_) => AudioPlayer()),
-    'b2': List.generate(4, (_) => AudioPlayer()),
-    'b3': List.generate(4, (_) => AudioPlayer()),
+    'r1': List.generate(4, (_) => AudioPlayer()),
+    'r2': List.generate(4, (_) => AudioPlayer()),
+    'r3': List.generate(4, (_) => AudioPlayer()),
   };
-  final Map<String, int> _nextPlayerIdx = {'b1': 0, 'b2': 0, 'b3': 0};
+  final Map<String, int> _nextPlayerIdx = {'r1': 0, 'r2': 0, 'r3': 0};
   final Map<String, int> _bolinhasMostradas = {};
   Map<String, int> get bolinhasMostradas => _bolinhasMostradas;
   double _offsetHorizontalScroll = 0.0; 
@@ -44,9 +44,9 @@ class RitmoProvider with ChangeNotifier {
   RitmoProvider() {
    
     _fracoes = [
-      FracaoModel(id: 'b1', cor: AppCores.corB1, assetSom: 'sounds/b1_som.mp3'),
-      FracaoModel(id: 'b2', cor: AppCores.corB2, assetSom: 'sounds/b2_som.mp3'),
-      FracaoModel(id: 'b3', cor: AppCores.corB3, assetSom: 'sounds/b3_som.mp3'),
+      FracaoModel(id: 'r1', cor: AppCores.corB1, assetSom: 'sounds/r1_som.mp3'),
+      FracaoModel(id: 'r2', cor: AppCores.corB2, assetSom: 'sounds/r2_som.mp3'),
+      FracaoModel(id: 'r3', cor: AppCores.corB3, assetSom: 'sounds/r3_som.mp3'),
     ];
 
     for (var f in _fracoes) {
@@ -58,6 +58,21 @@ class RitmoProvider with ChangeNotifier {
     _preloadAssets().then((_) => notifyListeners());
     carregarConjuntosSalvos().then((_) => notifyListeners());
   }
+
+void resetarRitmo() {
+    _stopAllFracoes();
+    _bolinhasMostradas.clear();
+
+    for (var fracao in _fracoes) {
+      fracao.numerador = null;     
+      fracao.denominador = null;    
+      fracao.estaSelecionada = false; 
+      fracao.estaTocando = false;    
+    }
+    notifyListeners();
+  }
+
+
  void _tocarSom(String id) {
     final pool = _playerPool[id]!;
     final idx = _nextPlayerIdx[id]!;
@@ -159,9 +174,9 @@ class RitmoProvider with ChangeNotifier {
    if (f.numerador == null || f.denominador == null || f.denominador == 0) {
       return 0;
     }
-    final n = f.numerador!;
-    final d = f.denominador!;
-    final double segundos = n / d;
+    final a = f.numerador!;
+    final b = f.denominador!;
+    final double segundos = a / b;
     return (segundos * 1000).round();
   }
 

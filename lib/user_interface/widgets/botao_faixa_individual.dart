@@ -17,34 +17,43 @@ class BotaoFaixaIndividual extends StatelessWidget {
     bool estaSelecionada = fracao.estaSelecionada;
     const double larguraBotao = 100.0; 
     const double alturaBotao = 40.0;
-    final identidadeFracao = 'faixa ${fracao.id.toUpperCase()}';
+
+    // MUDANÇA 1: Usar a terminologia correta e mais clara.
+    final identidadeRazao = 'Botão da razão ${fracao.id.toUpperCase()}';
 
     return Semantics(
+      // MUDANÇA 2: A 'label' agora descreve o estado atual de forma clara.
+      // O leitor de tela dirá: "Razão R1, ativada" ou "Razão R1, desativada".
       label: estaSelecionada
-          ? '$identidadeFracao, selecionada'
-          : 'Selecionar $identidadeFracao',
-      hint: 'Toque para alternar a seleção de áudio desta faixa',
+          ? '$identidadeRazao, ativada'
+          : '$identidadeRazao, desativada',
+      
+      // MUDANÇA 3: O 'hint' descreve a ação que o usuário pode tomar.
+      hint: 'Toque para ativar ou desativar a reprodução desta razão',
+      
+      // O 'selected' ajuda o leitor de tela a entender o estado de "toggle" do botão.
       selected: estaSelecionada,
       button: true,
       excludeSemantics: true,
-    child: ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        minimumSize: const Size(larguraBotao, alturaBotao), 
-        backgroundColor: estaSelecionada ? fracao.cor.withOpacity(0.8) : Colors.blueGrey[700],
-        foregroundColor: Colors.white,
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: estaSelecionada
-              ? BorderSide(color: Colors.white.withOpacity(0.9), width: 2.5)
-              : BorderSide(color: Colors.blueGrey[600]!, width: 1.5),
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(larguraBotao, alturaBotao), 
+          backgroundColor: estaSelecionada ? fracao.cor.withOpacity(0.8) : Colors.blueGrey[700],
+          foregroundColor: Colors.white,
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: estaSelecionada
+                ? BorderSide(color: Colors.white.withOpacity(0.9), width: 2.5)
+                : BorderSide(color: Colors.blueGrey[600]!, width: 1.5),
+          ),
+          elevation: estaSelecionada ? 6 : 2,
         ),
-        elevation: estaSelecionada ? 6 : 2,
+        onPressed: () {
+          ritmoProvider.toggleSelecaoFaixa(fracao.id);
+        },
+        child: Text(fracao.id.toUpperCase()),
       ),
-      onPressed: () {
-        ritmoProvider.toggleSelecaoFaixa(fracao.id);
-      },
-      child: Text(fracao.id.toUpperCase()),
-    ),);
+    );
   }
 }

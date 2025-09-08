@@ -5,13 +5,14 @@ class TutorialStep {
   final String text;
   final Alignment alignment;
   final EdgeInsets padding;
-  
+  final bool isInteractive;
 
   TutorialStep({
     required this.key,
     required this.text,
     this.alignment = Alignment.center,
     this.padding = const EdgeInsets.all(8.0),
+    this.isInteractive = false,
   });
 }
 
@@ -42,7 +43,14 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
     WidgetsBinding.instance.addPostFrameCallback((_) => _calculateHighlight());
   }
 
+  @override
+  void didUpdateWidget(covariant InteractiveTutorialOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _calculateHighlight());
+  }
+
   void _calculateHighlight() {
+    if (!mounted) return;
     final key = widget.steps[_currentStep].key;
     final RenderBox? renderBox =
         key.currentContext?.findRenderObject() as RenderBox?;
@@ -65,7 +73,7 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
       setState(() {
         _currentStep++;
       });
-      _calculateHighlight();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _calculateHighlight());
     } else {
       widget.onFinish();
     }
@@ -76,90 +84,106 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
       setState(() {
         _currentStep--;
       });
-      _calculateHighlight();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _calculateHighlight());
     }
   }
 
+  // ***** MÉTODO BUILD COMPLETAMENTE REFEITO *****
   @override
   Widget build(BuildContext context) {
     if (_highlightRect == null) {
-      return const SizedBox.shrink(); 
+      return const SizedBox.shrink();
     }
 
     final step = widget.steps[_currentStep];
 
-    return Material(
-      color: Colors.transparent,
-      child: Stack(
-        children: [
-          CustomPaint(
-            size: MediaQuery.of(context).size,
-            painter: HolePainter(
-              hole: _highlightRect!.inflate(10.0), 
+    // O widget raiz agora é um Stack. Ele não bloqueia cliques em áreas vazias.
+    return Stack(
+      children: [
+        // 1. A CAMADA ESCURA: Só é adicionada se o passo NÃO for interativo.
+        // Quando está presente, ela bloqueia os cliques. Quando não está, não há nada para bloquear.
+        if (!step.isInteractive)
+          Positioned.fill(
+            child: CustomPaint(
+              painter: HolePainter(
+                hole: _highlightRect!.inflate(10.0),
+              ),
             ),
           ),
-          Positioned.fill(
-            child: Align(
-              alignment: step.alignment,
-              child: Padding(
-                padding: step.padding,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.blueAccent,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: const [
-                      BoxShadow(
-                          color: Colors.black54,
-                          blurRadius: 10,
-                          spreadRadius: 2)
-                    ],
-                  ),
-                  child: Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      step.text,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                    ),
+
+        // 2. A CAIXA DE TEXTO DO TUTORIAL: Sempre presente e posicionada.
+        Positioned.fill(
+          child: Align(
+            alignment: step.alignment,
+            child: Padding(
+              padding: step.padding,
+              child: Container(
+                constraints:
+                    BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blueAccent,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: const [
+                    BoxShadow(
+                        color: Colors.black54, blurRadius: 10, spreadRadius: 2)
+                  ],
+                ),
+                child: Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    step.text,
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ),
             ),
           ),
+        ),
 
-          Positioned(
-            bottom: 20,
-            left: 20,
-            right: 20,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                TextButton(
-                  onPressed: widget.onSkip,
-                  child: const Text('Pular Tutorial',
-                      style: TextStyle(color: Colors.white, fontSize: 16)),
-                ),
-                Row(
-                  children: [
-                    if (_currentStep > 0)
-                      ElevatedButton(
-                        onPressed: _previousStep,
-                        child: const Text('Anterior'),
-                      ),
-                    const SizedBox(width: 10),
-                    ElevatedButton(
-                      onPressed: _nextStep,
-                      child: Text(_currentStep == widget.steps.length - 1
-                          ? 'Finalizar'
-                          : 'Próximo'),
+        // 3. OS BOTÕES DE NAVEGAÇÃO DO TUTORIAL: Sempre presentes e posicionados.
+        Positioned(
+          bottom: 20,
+          left: 20,
+          right: 20,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+  ElevatedButton(
+                      onPressed: widget.onSkip,
+                child: const Text('Pular Tutorial',
+                    style: TextStyle(color: Colors.red, fontSize: 16)),
                     ),
-                  ],
-                ),
-              ],
-            ),
+
+              // TextButton(
+              //   onPressed: widget.onSkip,
+              //   child: const Text('Pular Tutorial',
+              //       style: TextStyle(color: Colors.white, fontSize: 16)),
+              // ),
+
+
+              Row(
+                children: [
+                  if (_currentStep > 0)
+                    ElevatedButton(
+                      onPressed: _previousStep,
+                      child: const Text('Anterior'),
+                    ),
+                  const SizedBox(width: 10),
+                  ElevatedButton(
+                    onPressed: _nextStep,
+                    child: Text(_currentStep == widget.steps.length - 1
+                        ? 'Finalizar'
+                        : 'Próximo',
+                        ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -172,8 +196,10 @@ class HolePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = Colors.black.withOpacity(0.7);
-    final screenPath = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
-    final holePath = Path()..addRRect(RRect.fromRectAndRadius(hole, const Radius.circular(15)));
+    final screenPath = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    final holePath = Path()
+      ..addRRect(RRect.fromRectAndRadius(hole, const Radius.circular(15)));
     final path = Path.combine(PathOperation.difference, screenPath, holePath);
     canvas.drawPath(path, paint);
   }

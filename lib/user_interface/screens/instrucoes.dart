@@ -8,59 +8,59 @@ class UsageInstructionsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Instruções de Uso'),
-         backgroundColor: Colors.blue, 
-         titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
+        backgroundColor: Colors.blue,
+        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Container(
         padding: const EdgeInsets.all(16.0),
-         color: const Color.fromRGBO(220, 247, 255, 1.0),
+        color: const Color.fromRGBO(220, 247, 255, 1.0),
         child: ListView(
           children: [
             _buildInstructionItem(
-              title: '1. Definir Frações',
+              title: '1. Definir uma Razão Rítmica',
               description:
-                  'Na tela principal, você encontrará três faixas (B1, B2 e B3). Em cada uma delas, insira uma fração usando os campos de numerador (N) e denominador (D), por exemplo: 3/4, 1/2, etc. Esses valores controlarão o ritmo e a quantidade de bolinhas geradas na animação.',
+                  'Na tela principal, você encontrará três faixas (R1, R2, R3). Cada uma possui dois campos: "A" (intervalo de tempo) e "B" (número de batidas). Por exemplo, para criar a razão "2 para 3", insira "2" no campo A e "3" no campo B.',
             ),
             _buildInstructionItem(
-              title: '2. Ativar ou Desativar Faixas',
+              title: '2. Ativar Faixas para Tocar',
               description:
-                  'Após definir os valores, clique no botão com o nome da faixa (B1, B2 ou B3) para ativar ou desativar aquela faixa na reprodução. As faixas ativas serão exibidas com uma cor mais destacada.',
+                  'Após definir os valores, clique no botão com o nome da faixa (R1, R2 ou R3) para ativá-la. Apenas as faixas ativas serão reproduzidas. As faixas ativas ficam com a cor destacada.',
             ),
             _buildInstructionItem(
               title: '3. Iniciar ou Parar a Reprodução',
               description:
-                  'Pressione o botão de "Play" para iniciar a animação das bolinhas e a reprodução dos sons. Para interromper a reprodução, pressione o botão de "Stop".',
+                  'Pressione o botão "Play" para iniciar a animação e os sons de todas as faixas que foram ativadas. Para interromper a reprodução, pressione o botão "Stop".',
             ),
             _buildInstructionItem(
-              title: '4. Navegar por colunas',
+              title: '4. Navegar pela Linha do Tempo',
               description:
-                  'Utilize o slider horizontal ou os botões de seta para avançar ou retroceder as colunas, ajustando a posição da visualização das bolinhas no espaço da tela.',
+                  'Utilize a barra deslizante horizontal ou os botões de seta para avançar ou retroceder na linha do tempo, ajustando a visualização da animação na tela.',
             ),
             _buildInstructionItem(
-              title: '5. Ajustar a Largura da Coluna',
+              title: '5. Ajustar a Densidade Visual',
               description:
-                  'No menu lateral, você pode usar o slider "Largura da Coluna" para aumentar ou diminuir a quantidade de subdivisões visíveis por coluna, alterando assim o espaçamento e a densidade das bolinhas na coluna.',
+                  'No menu lateral (canto superior esquerdo), use a barra "Largura da Coluna" para aumentar ou diminuir o espaçamento visual das batidas.',
             ),
             _buildInstructionItem(
               title: '6. Salvar um Ritmo',
               description:
-                  'Para salvar um ritmo que você criou, abra o menu lateral e clique em "Salvar Ritmo Atual". O sistema irá armazenar o conjunto de frações e suas configurações atuais.',
+                  'Para salvar o conjunto de razões que você criou, abra o menu lateral e clique em "Salvar Ritmo".',
             ),
             _buildInstructionItem(
               title: '7. Carregar um Ritmo Salvo',
               description:
-                  'No menu lateral, selecione "Ver Ritmos Salvos". Você verá uma lista dos ritmos que já foram salvos. Clique em um deles para aplicar os valores e carregá-lo na tela principal.',
+                  'No menu lateral, selecione "Lista de Ritmos Salvas". Na nova tela, encontre o ritmo desejado e clique no botão "Aplicar" para carregá-lo na tela principal.',
             ),
             _buildInstructionItem(
               title: '8. Excluir um Ritmo Salvo',
               description:
-                  'Na tela de ritmos salvos, utilize o ícone de lixeira ao lado de um ritmo para excluí-lo permanentemente.',
+                  'Na tela de "Ritmos Salvos", utilize o ícone de lixeira em um ritmo para excluí-lo permanentemente da sua lista.',
             ),
             _buildInstructionItem(
               title: '9. Limpar Valores de uma Faixa',
               description:
-                  'Para remover os valores de uma fração (numerador e denominador), clique no ícone de lixeira ao lado dos campos de entrada da faixa correspondente.',
+                  'Para apagar os números de uma faixa (R1, R2 ou R3) na tela principal, clique no ícone de lixeira localizado à direita dos campos de entrada da razão correspondente.',
             ),
           ],
         ),
@@ -68,7 +68,8 @@ class UsageInstructionsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInstructionItem({required String title, required String description}) {
+  Widget _buildInstructionItem(
+      {required String title, required String description}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

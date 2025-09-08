@@ -1,38 +1,34 @@
-// main.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; 
+
 import './services/ritmo_provider.dart';
-import './services/tutorial_service.dart'; 
-import './user_interface/screens/orientation_screen.dart'; 
+import './services/tutorial_service.dart';
+import './user_interface/screens/orientation_screen.dart';
 import './user_interface/screens/tela_principal.dart';
 
 void main() async {
-
   WidgetsFlutterBinding.ensureInitialized();
 
-  
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [
-  SystemUiOverlay.bottom
-]);
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
+        overlays: [SystemUiOverlay.bottom]);
+  }
 
   final tutorialService = TutorialService();
   final bool orientationHasBeenShown = await tutorialService.isOrientationShown();
-  
 
   runApp(MeuApp(
-    // Passamos o resultado para o widget principal
-    showOrientationScreen: !orientationHasBeenShown,
+    showOrientationScreen: !kIsWeb && !orientationHasBeenShown,
   ));
 }
 
 class MeuApp extends StatelessWidget {
-  // Variável para receber a decisão da tela inicial
   final bool showOrientationScreen;
 
   const MeuApp({
@@ -51,11 +47,9 @@ class MeuApp extends StatelessWidget {
           brightness: Brightness.light,
           scaffoldBackgroundColor: const Color(0xFF54ADFF),
         ),
-        // --- LÓGICA CONDICIONAL APLICADA AQUI ---
         home: showOrientationScreen
-            ? const OrientationScreen() // Se for a primeira vez, mostra a orientação
-            : const TelaPrincipal(),   // Caso contrário, vai para a tela principal
-        // ------------------------------------------
+            ? const OrientationScreen()
+            : const TelaPrincipal(),
         debugShowCheckedModeBanner: false,
       ),
     );

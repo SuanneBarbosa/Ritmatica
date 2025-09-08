@@ -55,17 +55,17 @@ class ControlesReproducao extends StatelessWidget {
       builder: (context, ritmoProvider, child) {
         print("ControlesReproducao Consumer está reconstruindo.");
 
-        final fracaoB1 = ritmoProvider.fracoes.firstWhere((f) => f.id == 'b1', orElse: () {
-          print("ERRO: Fração b1 não encontrada em ritmoProvider.fracoes!");
-          return FracaoModel(id: 'b1', cor: Colors.grey, assetSom: '', estaSelecionada: false);
+        final fracaoR1 = ritmoProvider.fracoes.firstWhere((f) => f.id == 'r1', orElse: () {
+          print("ERRO: Fração r1 não encontrada em ritmoProvider.fracoes!");
+          return FracaoModel(id: 'r1', cor: Colors.grey, assetSom: '', estaSelecionada: false);
         });
-        final fracaoB2 = ritmoProvider.fracoes.firstWhere((f) => f.id == 'b2', orElse: () {
-          print("ERRO: Fração b2 não encontrada em ritmoProvider.fracoes!");
-          return FracaoModel(id: 'b2', cor: Colors.grey, assetSom: '', estaSelecionada: false);
+        final fracaoR2 = ritmoProvider.fracoes.firstWhere((f) => f.id == 'r2', orElse: () {
+          print("ERRO: Fração r2 não encontrada em ritmoProvider.fracoes!");
+          return FracaoModel(id: 'r2', cor: Colors.grey, assetSom: '', estaSelecionada: false);
         });
-        final fracaoB3 = ritmoProvider.fracoes.firstWhere((f) => f.id == 'b3', orElse: () {
-          print("ERRO: Fração b3 não encontrada em ritmoProvider.fracoes!");
-          return FracaoModel(id: 'b3', cor: Colors.grey, assetSom: '', estaSelecionada: false);
+        final fracaoR3 = ritmoProvider.fracoes.firstWhere((f) => f.id == 'r3', orElse: () {
+          print("ERRO: Fração r3 não encontrada em ritmoProvider.fracoes!");
+          return FracaoModel(id: 'r3', cor: Colors.grey, assetSom: '', estaSelecionada: false);
         });
 
         return Container(
@@ -74,11 +74,11 @@ class ControlesReproducao extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.stretch, 
             children: [
-              _construirBotaoSelecaoFaixa(context, fracaoB1, ritmoProvider),
+              _construirBotaoSelecaoFaixa(context, fracaoR1, ritmoProvider),
               const SizedBox(height: 12),
-              _construirBotaoSelecaoFaixa(context, fracaoB2, ritmoProvider),
+              _construirBotaoSelecaoFaixa(context, fracaoR2, ritmoProvider),
               const SizedBox(height: 12),
-              _construirBotaoSelecaoFaixa(context, fracaoB3, ritmoProvider),
+              _construirBotaoSelecaoFaixa(context, fracaoR3, ritmoProvider),
             ],
           ),
         );

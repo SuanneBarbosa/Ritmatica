@@ -83,7 +83,7 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
 
   @override
   Widget build(BuildContext context) {
-    final identidadeFracao = 'fração ${widget.fracao.id.toUpperCase()}';
+    final identidadeRazao = 'razão ${widget.fracao.id.toUpperCase()}';
 
     Widget buildConditionalTextField(
       TextEditingController controller,
@@ -95,8 +95,8 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
         height: 32,
         child: Semantics(
           label:
-              '$labelPart para a $identidadeFracao. Valor atual: ${controller.text.isEmpty ? 'vazio' : controller.text}',
-          hint: 'Toque para abrir o teclado númerico e digitar o valor',
+              'Campo $hintText para a $identidadeRazao. Valor atual: ${controller.text.isEmpty ? 'vazio' : controller.text}',
+          hint: 'Toque para abrir o teclado numérico e digitar o valor',
 
           child: TextField(
             controller: controller,
@@ -132,7 +132,7 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
           ),
         ),
         const SizedBox(width: 8),
-        buildConditionalTextField(_numCtrl, 'N', 'Numerador'),
+        buildConditionalTextField(_numCtrl, 'A', 'Numerador'),
       //   Semantics(
       //   label: 'Está para', // O que será lido em voz alta
       //   child: const Text( // O que será exibido na tela
@@ -144,16 +144,16 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
 child: const Text(':', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,)),
 ),
 
-        buildConditionalTextField(_denCtrl, 'D', 'Denominador'),
+        buildConditionalTextField(_denCtrl, 'B', 'Denominador'),
 
         IconButton(
           icon: Icon(
             Icons.delete_outline,
             size: 20,
             color: widget.fracao.cor,
-            semanticLabel: 'Limpar fração',
+            semanticLabel: 'Limpar $identidadeRazao',
           ),
-          tooltip: 'Limpar fração',
+          tooltip: 'Limpar razão',
           onPressed: () {
             _numCtrl.clear();
             _denCtrl.clear();

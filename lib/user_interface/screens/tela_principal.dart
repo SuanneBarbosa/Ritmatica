@@ -31,7 +31,7 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
   final GlobalKey _keyMenu = GlobalKey();
   final GlobalKey _keyCentral = GlobalKey();
 
-   final TutorialService _tutorialService = TutorialService();
+  final TutorialService _tutorialService = TutorialService();
 
   @override
   void initState() {
@@ -39,13 +39,13 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
     _checkIfTutorialNeeded();
 
     if (!kIsWeb) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {});
     }
   }
 
-   Future<void> _checkIfTutorialNeeded() async {
-    final bool tutorialCompleted = await _tutorialService.isMainTutorialCompleted();
+  Future<void> _checkIfTutorialNeeded() async {
+    final bool tutorialCompleted =
+        await _tutorialService.isMainTutorialCompleted();
     if (!tutorialCompleted) {
       if (mounted) {
         setState(() {
@@ -54,7 +54,6 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
       }
     }
   }
-
 
   Future<void> _markTutorialAsCompleted() async {
     await _tutorialService.markMainTutorialAsCompleted();
@@ -72,66 +71,106 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
       TutorialStep(
         key: _keyCentral,
         text:
-            'Bem-vindo ao Ritmática! Este tutorial guiará você pelas funcionalidades principais. Use os botões de próximo e anterior na parte inferior da tela para navegar ou feche o tutorial no botão Pular Tutorial.',
+            'Bem-vindo ao Ritmática! Este tutorial guiará você pelas principais funcionalidades. Use os botões Próximo e Anterior na parte inferior da tela para navegar, ou feche o tutorial no botão Pular Tutorial.',
         alignment: Alignment.center,
       ),
       TutorialStep(
         key: _keyGrupoInputs,
         text:
-            'Passo 1 de 6: Controles de Ritmo. Na parte inferior da tela, estão as três faixas de controle: B1, B2 e B3. '
-            'Cada uma possui dois campos de texto. O primeiro campo, "N", é o intervalo de tempo. O segundo, "D", é o número de batidas. Clique em no botão inferior próximo para continuar',
+            'Controles de Ritmo: Para gerar um ritmo você deve criar uma razão. Na parte inferior da tela estão os campos para inserir os valores das razões: R1, R2 e R3. '
+            'Cada razão possui dois campos: o primeiro número é colocado em "A" (intervalo de tempo) e o segundo em "B" (número de batidas). '
+            'Por exemplo: na razão "2 está para 3", você deve colocar o número 2 em "A" e o número 3 em "B". '
+            'Clique em Próximo para continuar.',
         alignment: Alignment.topCenter,
         padding: const EdgeInsets.only(top: 80),
       ),
       TutorialStep(
         key: _keyVisualizador,
         text:
-            'Passo 2 de 6: Visualizador de Ritmo. Na área superior e maior da tela, a animação do seu ritmo será exibida. '
-            'Cada batida sonora corresponderá a uma bolinha colorida aparecendo nesta área. Clique em no botão inferior próximo para continuar',
+            'Animação de Ritmo: Na área superior e maior da tela, a animação do seu ritmo será exibida. '
+            'Cada batida sonora corresponderá a uma bolinha aparecendo nesta área. Clique em Próximo para continuar.',
         alignment: Alignment.bottomCenter,
         padding: const EdgeInsets.only(bottom: 120),
       ),
       TutorialStep(
         key: _keyBotaoB1,
         text:
-            'Passo 3 de 6: Ativar uma Faixa. Abaixo dos campos de texto, cada faixa tem um botão de ativação. '
-            'Toque duas vezes no botão para ativá-lo. Apenas as faixas ativas serão reproduzidas. Clique em no botão inferior próximo para continuar',
+            'Ativar uma razão: Abaixo de cada razão tem um botão de ativação. '
+            'Apenas as razões ativas serão reproduzidas. Clique em Próximo para continuar.',
         alignment: Alignment.topCenter,
         padding: const EdgeInsets.only(top: 100),
       ),
       TutorialStep(
         key: _keyPlayGlobal,
         text:
-            'Passo 4 de 6: Botão de Play e Stop. Localizado à esquerda da barra deslizante, este botão inicia e para a reprodução de todas as faixas ativas. '
-            'O leitor de tela anunciará se é "Play" ou "Stop". Clique em no botão inferior próximo para continuar',
+            'Botão Play e Stop: Localizado à esquerda da barra deslizante, este botão inicia e interrompe a reprodução de todas as razões ativas. '
+            'O leitor de tela anunciará se o botão está em "Play" ou "Stop". Clique em Próximo para continuar.',
+        alignment: Alignment.topCenter,
+        padding: const EdgeInsets.only(top: 50, right: 200),
+      ),
+      TutorialStep(
+        key: _keyPlayGlobal,
+        text:
+            'Para tocar duas ou três razões ao mesmo tempo, primeiro ative os botões das razões desejadas, depois toque no botão de Stop, assim elas irão parar de tocar. Então, toque novamente nesse mesmo botão para dar play. Assim, todas as faixas ativadas iniciarão juntas.',
         alignment: Alignment.topCenter,
         padding: const EdgeInsets.only(top: 50, right: 200),
       ),
       TutorialStep(
         key: _keySlider,
         text:
-            'Passo 5 de 6: Barra de Navegação. No centro da tela, entre os botões de play e setas, há uma barra deslizante. '
-            'Use-a para navegar pela linha do tempo da animação. As setas ao lado movem a visualização em blocos. Clique em no botão inferior próximo para continuar',
+            'Barra de Navegação: No centro da tela, entre os botões de Play e as setas, há uma barra deslizante. '
+            'Use-a para navegar pela linha do tempo da animação. As setas ao lado movem a visualização em blocos. Clique em Próximo para continuar.',
         alignment: Alignment.topCenter,
         padding: const EdgeInsets.only(top: 100, left: 150),
       ),
       TutorialStep(
         key: _keyMenu,
         text:
-            'Passo 6 de 6: Menu Principal. Localizado no canto superior esquerdo da tela, este botão abre o menu de navegação com opções para salvar, carregar ritmos e acessar as configurações. Clique em no botão inferior próximo para continuar',
+            'Menu Principal: Localizado no canto superior esquerdo da tela, este botão abre o menu de navegação com opções para salvar, carregar ritmos e acessar as configurações. Clique em Próximo para continuar.',
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
       ),
       TutorialStep(
         key: _keyCentral,
-        text: 'Tutorial concluído! Boa exploração! Clique no botão Finalizar',
+        text:
+            'Agora vamos para a parte prática. Prepare-se para criar seu primeiro ritmo! Clique em Próximo para continuar.',
         alignment: Alignment.center,
+      ),
+      TutorialStep(
+        key: _keyGrupoInputs,
+        text:
+            'Vamos explorar a proporcionalidade! Primeiro, na Razão R1 insira "2" no campo "A" e "3" no campo "B". Clique em Próximo para continuar.',
+        alignment: Alignment.topCenter,
+        padding: const EdgeInsets.only(top: 80),
+        isInteractive: true, // <-- MUDANÇA AQUI
+      ),
+      TutorialStep(
+        key: _keyGrupoInputs,
+        text:
+            'Agora, na Razão R2 insira "4" no campo "A" e "6" no campo "B". Clique em Próximo para continuar.',
+        alignment: Alignment.topCenter,
+        padding: const EdgeInsets.only(top: 80),
+        isInteractive: true, // <-- MUDANÇA AQUI
+      ),
+      TutorialStep(
+        key: _keyBotaoB1,
+        text: 'Ative as Razões tocando no botão "R1" e depois no botão "R2". Clique em Próximo para continuar.',
+        alignment: Alignment.topCenter,
+        padding: const EdgeInsets.only(top: 100),
+        isInteractive: true, // <-- MUDANÇA AQUI
+      ),
+      TutorialStep(
+        key: _keyPlayGlobal,
+        text:
+            'Toque duas vezes no botão "Play" para ouvir as duas razões juntas, demonstrando a proporcionalidade. Perceba como a cadência rítmica é a mesma, ou seja, o mesmo padrão de batidas! Clique em Próximo para continuar.',
+        alignment: Alignment.topCenter,
+        padding: const EdgeInsets.only(top: 50, right: 200),
+        isInteractive: true, // <-- MUDANÇA AQUI
       ),
       TutorialStep(
         key: _keyCentral,
         text:
-            'Dica de Uso: Para explorar a proporção, crie um ritmo "2 para 3" na faixa B1 e um ritmo "4 para 6" na faixa B2. '
-            'Ao tocar as duas juntas, você ouvirá que elas possuem a mesma cadência rítmica, ou seja, o mesmo "padrão de batidas".',
+            'Tutorial prático finalizado! Você aprendeu a criar e comparar ritmos proporcionais. Continue explorando! Clique no botão Finalizar.',
         alignment: Alignment.center,
       ),
     ];
@@ -176,185 +215,185 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
       ),
       body: Stack(
         children: [
-        
           Center(child: SizedBox(key: _keyCentral, width: 1, height: 1)),
-          AbsorbPointer(
-            absorbing: _showTutorial,
-            child: Padding(
-              padding: const EdgeInsets.all(1.0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
+
+          Padding(
+            padding: const EdgeInsets.all(1.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Semantics(
+                      label: 'Abrir menu de navegação',
+                      button: true,
+                      child: IconButton(
+                        key: _keyMenu,
+                        icon: const Icon(Icons.menu),
+                        iconSize: 30,
+                        tooltip: 'Abrir menu',
+                        onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                      ),
+                    ),
+                    const Spacer(),
+                  ],
+                ),
+                Expanded(
+                  flex: 6,
+                  child: Column(
                     children: [
-                      Semantics(
-                        label: 'Abrir menu de navegação',
-                        button: true,
-                        child: IconButton(
-                          key: _keyMenu,
-                          icon: const Icon(Icons.menu),
-                          iconSize: 30,
-                          tooltip: 'Abrir menu',
-                          onPressed: () =>
-                              _scaffoldKey.currentState?.openDrawer(),
+                      Expanded(
+                        flex: 2,
+                        child: Container(
+                          key: _keyVisualizador,
+                          child: VisualizadorRitmo(
+                            estaTocando: ritmoProvider.estaTocandoGlobalmente,
+                          ),
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(height: 5),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Semantics(
+                            label: ritmoProvider.estaTocandoGlobalmente
+                                ? 'Botão Stop para parar a reprodução'
+                                : 'Botão Play para iniciar a reprodução',
+                            hint: ritmoProvider.estaTocandoGlobalmente
+                                ? 'Interrompe a reprodução global do ritmo'
+                                : 'Inicia a reprodução global do ritmo',
+                            button: true,
+                            excludeSemantics: true,
+                            child: IconButton(
+                              key: _keyPlayGlobal,
+                              icon: Icon(
+                                ritmoProvider.estaTocandoGlobalmente
+                                    ? Icons.stop_circle_outlined
+                                    : Icons.play_circle_outline,
+                              ),
+                              iconSize: 50,
+                              color: ritmoProvider.estaTocandoGlobalmente
+                                  ? Colors.redAccent.shade200
+                                  : Colors.white,
+                              tooltip: ritmoProvider.estaTocandoGlobalmente
+                                  ? 'Parar'
+                                  : 'Tocar',
+                              onPressed: () {
+                                ritmoProvider.iniciarOuPausarReproducaoGlobal();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Semantics(
+                            label:
+                                'Botão para retroceder 10 colunas na tela de animação do ritmo',
+                            button: true,
+                            excludeSemantics: true,
+                            child: IconButton(
+                              icon: const Icon(Icons.arrow_back_ios),
+                              tooltip: 'Retroceder',
+                              onPressed: () {
+                                ritmoProvider.retrocederScroll(colunas: 10);
+                              },
+                            ),
+                          ),
+                          Expanded(
+                            child: Slider(
+                              key: _keySlider,
+                              value: sliderValue,
+                              min: 0.0,
+                              max: sliderMaximum,
+                              divisions: (sliderMaximum > 0)
+                                  ? (sliderMaximum /
+                                          (ritmoProvider.subdivisoesPorColunaVisual > 0
+                                              ? ritmoProvider.subdivisoesPorColunaVisual
+                                              : 1))
+                                      .round()
+                                      .clamp(1, 100000)
+                                  : 1,
+                              label:
+                                  "Coluna: ${(currentOffset / ritmoProvider.subdivisoesPorColunaVisual).floor()}",
+                              onChanged: (double value) {
+                                ritmoProvider.definirOffsetHorizontalScroll(value);
+                              },
+                            ),
+                          ),
+                          Semantics(
+                            label:
+                                'Botão para avançar 10 colunas na tela de animação do ritmo',
+                            button: true,
+                            excludeSemantics: true,
+                            child: IconButton(
+                              icon: const Icon(Icons.arrow_forward_ios),
+                              tooltip: 'Avançar',
+                              onPressed: () {
+                                ritmoProvider.avancarScroll(colunas: 10);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Row(
+                            key: _keyGrupoInputs,
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: ritmoProvider.fracoes.map((fracao) {
+                              GlobalKey? botaoKey;
+                              if (fracao.id == 'r1') {
+                                botaoKey = _keyBotaoB1;
+                              }
+                              // Você pode adicionar keys para os botões R2 e R3 se precisar destacá-los individualmente
+                              
+                              return FocusTraversalGroup(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Semantics(
+                                      sortKey: const OrdinalSortKey(1.0),
+                                      child: LinhaInputFracao(
+                                        fracao: fracao,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 1),
+                                    Semantics(
+                                      sortKey: const OrdinalSortKey(2.0),
+                                      child: BotaoFaixaIndividual(
+                                        fracao: fracao,
+                                        key: botaoKey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                  Expanded(
-                    flex: 6,
-                    child: Column(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Container(
-                            key: _keyVisualizador,
-                            child: VisualizadorRitmo(
-                              estaTocando: ritmoProvider.estaTocandoGlobalmente,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Semantics(
-                              label: ritmoProvider.estaTocandoGlobalmente
-                                  ? 'Botão Stop para parar a reprodução'
-                                  : 'Botão Play para iniciar a reprodução',
-                              hint: ritmoProvider.estaTocandoGlobalmente
-                                  ? 'Interrompe a reprodução global do ritmo'
-                                  : 'Inicia a reprodução global do ritmo',
-                              button: true,
-                              excludeSemantics: true,
-                              child: IconButton(
-                                key: _keyPlayGlobal,
-                                icon: Icon(
-                                  ritmoProvider.estaTocandoGlobalmente
-                                      ? Icons.stop_circle_outlined
-                                      : Icons.play_circle_outline,
-                                ),
-                                iconSize: 50,
-                                color: ritmoProvider.estaTocandoGlobalmente
-                                    ? Colors.redAccent.shade200
-                                    : Colors.white,
-                                tooltip: ritmoProvider.estaTocandoGlobalmente
-                                    ? 'Parar'
-                                    : 'Tocar',
-                                onPressed: () {
-                                  ritmoProvider
-                                      .iniciarOuPausarReproducaoGlobal();
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Semantics(
-                              label:
-                                  'Botão para retroceder 10 colunas na tela de animação do ritmo',
-                              button: true,
-                              excludeSemantics: true,
-                              child: IconButton(
-                                icon: const Icon(Icons.arrow_back_ios),
-                                tooltip: 'Retroceder',
-                                onPressed: () {
-                                  ritmoProvider.retrocederScroll(colunas: 10);
-                                },
-                              ),
-                            ),
-                            Expanded(
-                              child: Slider(
-                                key: _keySlider,
-                                value: sliderValue,
-                                min: 0.0,
-                                max: sliderMaximum,
-                                divisions: (sliderMaximum > 0)
-                                    ? (sliderMaximum /
-                                            (ritmoProvider
-                                                        .subdivisoesPorColunaVisual >
-                                                    0
-                                                ? ritmoProvider
-                                                    .subdivisoesPorColunaVisual
-                                                : 1))
-                                        .round()
-                                        .clamp(1, 100000)
-                                    : 1,
-                                label:
-                                    "Coluna: ${(currentOffset / ritmoProvider.subdivisoesPorColunaVisual).floor()}",
-                                onChanged: (double value) {
-                                  ritmoProvider
-                                      .definirOffsetHorizontalScroll(value);
-                                },
-                              ),
-                            ),
-                            Semantics(
-                              label:
-                                  'Botão para avançar 10 colunas na tela de animação do ritmo',
-                              button: true,
-                              excludeSemantics: true,
-                              child: IconButton(
-                                icon: const Icon(Icons.arrow_forward_ios),
-                                tooltip: 'Avançar',
-                                onPressed: () {
-                                  ritmoProvider.avancarScroll(colunas: 10);
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        Expanded(
-                          flex: 1,
-                          child: Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 8.0),
-                            child: Row(
-                              key: _keyGrupoInputs,
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: ritmoProvider.fracoes.map((fracao) {
-                                GlobalKey? botaoKey;
-                                if (fracao.id == 'b1') {
-                                  botaoKey = _keyBotaoB1;
-                                }
-
-                                return FocusTraversalGroup(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Semantics(
-                                        sortKey: const OrdinalSortKey(1.0),
-                                        child: LinhaInputFracao(
-                                          fracao: fracao,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 1),
-                                      Semantics(
-                                        sortKey: const OrdinalSortKey(2.0),
-                                        child: BotaoFaixaIndividual(
-                                          fracao: fracao,
-                                          key: botaoKey,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
+          
           if (_showTutorial)
             InteractiveTutorialOverlay(
               steps: tutorialSteps,
-              onFinish: _markTutorialAsCompleted,
-              onSkip: _markTutorialAsCompleted,
+              // onFinish: _markTutorialAsCompleted,
+              // onSkip: _markTutorialAsCompleted,
+                 onFinish: () {
+                Provider.of<RitmoProvider>(context, listen: false).resetarRitmo();
+                _markTutorialAsCompleted();
+              },
+              onSkip: () {
+                Provider.of<RitmoProvider>(context, listen: false).resetarRitmo();
+                _markTutorialAsCompleted();
+              },
             ),
         ],
       ),

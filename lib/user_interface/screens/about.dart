@@ -48,7 +48,7 @@ class AboutScreen extends StatelessWidget {
             ),
             const Center(
               child: Text(
-                'Versão 1.0',
+                'Versão 1.2',
                 style: TextStyle(
                   fontSize: 16,
                   fontStyle: FontStyle.italic,
@@ -59,20 +59,15 @@ class AboutScreen extends StatelessWidget {
             const Divider(height: 30),
             _buildSectionTitle('O que é o App?'),
             const Text(
-              'O Ritmática é uma ferramenta educacional que transforma conceitos de ritmo e frações em uma experiência visual e sonora, facilitando o aprendizado através de animações e sons.',
+              'O Ritmática é uma ferramenta educacional que conecta os conceitos matemáticos de razão e proporção com o mundo da música. Através de uma experiência visual e sonora interativa.',
               style: TextStyle(fontSize: 16, height: 1.4),
             ),
             const SizedBox(height: 20),
             _buildSectionTitle('Principais Funcionalidades'),
             _buildFeatureItem(
-              Icons.edit,
-              'Configuração de Frações:',
-              'Digite frações como 1/2, 3/4 ou 5/3 nas faixas B1, B2 e B3 para definir os padrões rítmicos de cada linha.',
-            ),
-            _buildFeatureItem(
               Icons.play_circle_outline,
               'Reprodução com Som e Animação:',
-              'Toque no botão de ativar B1, B2 ou B3 para ativar a reprodução. O app irá exibir a animação das bolinhas e tocar sons correspondentes a cada fração configurada.',
+              'Toque no botão de ativar R1, R2 ou R3 para ativar a reprodução. O app irá exibir a animação das bolinhas e tocar sons correspondentes a cada razão configurada.',
             ),
             _buildFeatureItem(
               Icons.tune,
