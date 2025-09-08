@@ -289,7 +289,6 @@ void resetarRitmo() {
 
     if (fracoesValidas.isEmpty) {
       print("Nenhuma fração válida para salvar.");
-      // ScaffoldMessenger.of(context).showSnackBar(...)
       return false;
     }
 

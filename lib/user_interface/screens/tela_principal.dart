@@ -142,7 +142,7 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
             'Vamos explorar a proporcionalidade! Primeiro, na Razão R1 insira "2" no campo "A" e "3" no campo "B". Clique em Próximo para continuar.',
         alignment: Alignment.topCenter,
         padding: const EdgeInsets.only(top: 80),
-        isInteractive: true, // <-- MUDANÇA AQUI
+        isInteractive: true, 
       ),
       TutorialStep(
         key: _keyGrupoInputs,
@@ -150,14 +150,14 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
             'Agora, na Razão R2 insira "4" no campo "A" e "6" no campo "B". Clique em Próximo para continuar.',
         alignment: Alignment.topCenter,
         padding: const EdgeInsets.only(top: 80),
-        isInteractive: true, // <-- MUDANÇA AQUI
+        isInteractive: true, 
       ),
       TutorialStep(
         key: _keyBotaoB1,
         text: 'Ative as Razões tocando no botão "R1" e depois no botão "R2". Clique em Próximo para continuar.',
         alignment: Alignment.topCenter,
         padding: const EdgeInsets.only(top: 100),
-        isInteractive: true, // <-- MUDANÇA AQUI
+        isInteractive: true, 
       ),
       TutorialStep(
         key: _keyPlayGlobal,
@@ -165,7 +165,7 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
             'Toque duas vezes no botão "Play" para ouvir as duas razões juntas, demonstrando a proporcionalidade. Perceba como a cadência rítmica é a mesma, ou seja, o mesmo padrão de batidas! Clique em Próximo para continuar.',
         alignment: Alignment.topCenter,
         padding: const EdgeInsets.only(top: 50, right: 200),
-        isInteractive: true, // <-- MUDANÇA AQUI
+        isInteractive: true, 
       ),
       TutorialStep(
         key: _keyCentral,
@@ -347,8 +347,6 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
                               if (fracao.id == 'r1') {
                                 botaoKey = _keyBotaoB1;
                               }
-                              // Você pode adicionar keys para os botões R2 e R3 se precisar destacá-los individualmente
-                              
                               return FocusTraversalGroup(
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
@@ -384,8 +382,6 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
           if (_showTutorial)
             InteractiveTutorialOverlay(
               steps: tutorialSteps,
-              // onFinish: _markTutorialAsCompleted,
-              // onSkip: _markTutorialAsCompleted,
                  onFinish: () {
                 Provider.of<RitmoProvider>(context, listen: false).resetarRitmo();
                 _markTutorialAsCompleted();

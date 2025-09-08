@@ -134,8 +134,8 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
         const SizedBox(width: 8),
         buildConditionalTextField(_numCtrl, 'A', 'Numerador'),
       //   Semantics(
-      //   label: 'Está para', // O que será lido em voz alta
-      //   child: const Text( // O que será exibido na tela
+      //   label: 'Está para', 
+      //   child: const Text( 
       //     ':',
       //     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
       //   ),

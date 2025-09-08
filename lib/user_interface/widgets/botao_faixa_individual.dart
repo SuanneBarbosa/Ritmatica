@@ -18,20 +18,19 @@ class BotaoFaixaIndividual extends StatelessWidget {
     const double larguraBotao = 100.0; 
     const double alturaBotao = 40.0;
 
-    // MUDANÇA 1: Usar a terminologia correta e mais clara.
+    
     final identidadeRazao = 'Botão da razão ${fracao.id.toUpperCase()}';
 
     return Semantics(
-      // MUDANÇA 2: A 'label' agora descreve o estado atual de forma clara.
-      // O leitor de tela dirá: "Razão R1, ativada" ou "Razão R1, desativada".
+      
       label: estaSelecionada
           ? '$identidadeRazao, ativada'
           : '$identidadeRazao, desativada',
       
-      // MUDANÇA 3: O 'hint' descreve a ação que o usuário pode tomar.
+    
       hint: 'Toque para ativar ou desativar a reprodução desta razão',
       
-      // O 'selected' ajuda o leitor de tela a entender o estado de "toggle" do botão.
+    
       selected: estaSelecionada,
       button: true,
       excludeSemantics: true,

@@ -166,9 +166,9 @@ class TelaRitmosSalvos extends StatelessWidget {
     );
   }
 
-  // MUDANÇA 3: Acessibilidade (Semantics)
+  
   Widget _buildFracaoDisplay(FracaoModel fracao) {
-    // Constrói a label para o leitor de tela
+   
     String semanticLabel = 'Razão ${fracao.id.toUpperCase()}';
     if (fracao.numerador != null && fracao.denominador != null) {
       semanticLabel += ', ${fracao.numerador} está para ${fracao.denominador}';
@@ -178,16 +178,14 @@ class TelaRitmosSalvos extends StatelessWidget {
 
     return Semantics(
       label: semanticLabel,
-      child: ExcludeSemantics( // Impede que o leitor de tela leia os filhos individualmente
+      child: ExcludeSemantics( 
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // MUDANÇA 2: Borda preta no texto R1, R2, R3
               Stack(
                 children: [
-                  // Camada de trás: A borda preta
                   Text(
                     '${fracao.id.toUpperCase()}:',
                     style: TextStyle(
@@ -195,11 +193,10 @@ class TelaRitmosSalvos extends StatelessWidget {
                       fontSize: 14,
                       foreground: Paint()
                         ..style = PaintingStyle.stroke
-                        ..strokeWidth = 1.5 // Espessura da borda
-                        ..color = Colors.black, // Cor da borda
+                        ..strokeWidth = 1.5 
+                        ..color = Colors.black, 
                     ),
                   ),
-                  // Camada da frente: A cor original
                   Text(
                     '${fracao.id.toUpperCase()}:',
                     style: TextStyle(
@@ -243,7 +240,6 @@ class TelaRitmosSalvos extends StatelessWidget {
           child: Text(
             value?.toString() ?? '',
             style: const TextStyle(
-              // MUDANÇA 1: Cor do texto alterada para preto
               color: Colors.black,
               fontWeight: FontWeight.bold,
               fontSize: 14,
