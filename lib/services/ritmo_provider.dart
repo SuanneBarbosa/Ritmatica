@@ -6,6 +6,7 @@ import '../models/fracao_model.dart';
 import '../models/conjunto_ritmo_model.dart';
 import '../utils/cores.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
 
 
 class RitmoProvider with ChangeNotifier {
@@ -73,16 +74,27 @@ void resetarRitmo() {
   }
 
 
- void _tocarSom(String id) {
+ Future<void> _tocarSom(String id) async {
     final pool = _playerPool[id]!;
     final idx = _nextPlayerIdx[id]!;
     final player = pool[idx];
     _nextPlayerIdx[id] = (idx + 1) % pool.length;
 
-
-    player
-      ..seek(Duration.zero)
-      ..play();
+    if (kIsWeb) {
+      try {
+        if (player.playing) {
+          await player.stop();
+        }
+        await player.seek(Duration.zero);
+        player.play();
+      } catch (e) {
+        debugPrint("Erro player web: $e");
+      }
+    } else {
+      player
+        ..seek(Duration.zero)
+        ..play();
+    }
   }
  
 
