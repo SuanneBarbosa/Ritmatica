@@ -1,33 +1,32 @@
 [main.dart]
 
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; 
+
 import './services/ritmo_provider.dart';
-import './services/tutorial_service.dart'; 
-import './user_interface/screens/orientation_screen.dart'; 
+import './services/tutorial_service.dart';
+import './user_interface/screens/orientation_screen.dart';
 import './user_interface/screens/tela_principal.dart';
 
 void main() async {
-
   WidgetsFlutterBinding.ensureInitialized();
 
-  
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: [
-  SystemUiOverlay.bottom
-]);
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
+        overlays: [SystemUiOverlay.bottom]);
+  }
 
   final tutorialService = TutorialService();
   final bool orientationHasBeenShown = await tutorialService.isOrientationShown();
-  
 
   runApp(MeuApp(
-    showOrientationScreen: !orientationHasBeenShown,
+    showOrientationScreen: !kIsWeb && !orientationHasBeenShown,
   ));
 }
 
@@ -50,11 +49,9 @@ class MeuApp extends StatelessWidget {
           brightness: Brightness.light,
           scaffoldBackgroundColor: const Color(0xFF54ADFF),
         ),
-       
         home: showOrientationScreen
-            ? const OrientationScreen() 
-            : const TelaPrincipal(),   
-        
+            ? const OrientationScreen()
+            : const TelaPrincipal(),
         debugShowCheckedModeBanner: false,
       ),
     );
@@ -214,6 +211,21 @@ class RitmoProvider with ChangeNotifier {
     _preloadAssets().then((_) => notifyListeners());
     carregarConjuntosSalvos().then((_) => notifyListeners());
   }
+
+void resetarRitmo() {
+    _stopAllFracoes();
+    _bolinhasMostradas.clear();
+
+    for (var fracao in _fracoes) {
+      fracao.numerador = null;     
+      fracao.denominador = null;    
+      fracao.estaSelecionada = false; 
+      fracao.estaTocando = false;    
+    }
+    notifyListeners();
+  }
+
+
  void _tocarSom(String id) {
     final pool = _playerPool[id]!;
     final idx = _nextPlayerIdx[id]!;
@@ -430,7 +442,6 @@ class RitmoProvider with ChangeNotifier {
 
     if (fracoesValidas.isEmpty) {
       print("Nenhuma fração válida para salvar.");
-      // ScaffoldMessenger.of(context).showSnackBar(...)
       return false;
     }
 
@@ -622,7 +633,7 @@ class AboutScreen extends StatelessWidget {
             ),
             const Center(
               child: Text(
-                'Versão 1.0',
+                'Versão 1.2',
                 style: TextStyle(
                   fontSize: 16,
                   fontStyle: FontStyle.italic,
@@ -633,20 +644,15 @@ class AboutScreen extends StatelessWidget {
             const Divider(height: 30),
             _buildSectionTitle('O que é o App?'),
             const Text(
-              'O Ritmática é uma ferramenta educacional que transforma conceitos de ritmo e frações em uma experiência visual e sonora, facilitando o aprendizado através de animações e sons.',
+              'O Ritmática é uma ferramenta educacional que conecta os conceitos matemáticos de razão e proporção com o mundo da música. Através de uma experiência visual e sonora interativa.',
               style: TextStyle(fontSize: 16, height: 1.4),
             ),
             const SizedBox(height: 20),
             _buildSectionTitle('Principais Funcionalidades'),
             _buildFeatureItem(
-              Icons.edit,
-              'Configuração de Frações:',
-              'Digite frações como 1/2, 3/4 ou 5/3 nas faixas R1, R2 e R3 para definir os padrões rítmicos de cada linha.',
-            ),
-            _buildFeatureItem(
               Icons.play_circle_outline,
               'Reprodução com Som e Animação:',
-              'Toque no botão de ativar R1, R2 ou R3 para ativar a reprodução. O app irá exibir a animação das bolinhas e tocar sons correspondentes a cada fração configurada.',
+              'Toque no botão de ativar R1, R2 ou R3 para ativar a reprodução. O app irá exibir a animação das bolinhas e tocar sons correspondentes a cada razão configurada.',
             ),
             _buildFeatureItem(
               Icons.tune,
@@ -854,59 +860,59 @@ class UsageInstructionsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Instruções de Uso'),
-         backgroundColor: Colors.blue, 
-         titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
+        backgroundColor: Colors.blue,
+        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Container(
         padding: const EdgeInsets.all(16.0),
-         color: const Color.fromRGBO(220, 247, 255, 1.0),
+        color: const Color.fromRGBO(220, 247, 255, 1.0),
         child: ListView(
           children: [
             _buildInstructionItem(
-              title: '1. Definir Frações',
+              title: '1. Definir uma Razão Rítmica',
               description:
-                  'Na tela principal, você encontrará três faixas (R1, R2 e R3). Em cada uma delas, insira uma fração usando os campos de numerador (N) e denominador (D), por exemplo: 3/4, 1/2, etc. Esses valores controlarão o ritmo e a quantidade de bolinhas geradas na animação.',
+                  'Na tela principal, você encontrará três faixas (R1, R2, R3). Cada uma possui dois campos: "A" (intervalo de tempo) e "B" (número de batidas). Por exemplo, para criar a razão "2 para 3", insira "2" no campo A e "3" no campo B.',
             ),
             _buildInstructionItem(
-              title: '2. Ativar ou Desativar Faixas',
+              title: '2. Ativar Faixas para Tocar',
               description:
-                  'Após definir os valores, clique no botão com o nome da faixa (B1, B2 ou B3) para ativar ou desativar aquela faixa na reprodução. As faixas ativas serão exibidas com uma cor mais destacada.',
+                  'Após definir os valores, clique no botão com o nome da faixa (R1, R2 ou R3) para ativá-la. Apenas as faixas ativas serão reproduzidas. As faixas ativas ficam com a cor destacada.',
             ),
             _buildInstructionItem(
               title: '3. Iniciar ou Parar a Reprodução',
               description:
-                  'Pressione o botão de "Play" para iniciar a animação das bolinhas e a reprodução dos sons. Para interromper a reprodução, pressione o botão de "Stop".',
+                  'Pressione o botão "Play" para iniciar a animação e os sons de todas as faixas que foram ativadas. Para interromper a reprodução, pressione o botão "Stop".',
             ),
             _buildInstructionItem(
-              title: '4. Navegar por colunas',
+              title: '4. Navegar pela Linha do Tempo',
               description:
-                  'Utilize o slider horizontal ou os botões de seta para avançar ou retroceder as colunas, ajustando a posição da visualização das bolinhas no espaço da tela.',
+                  'Utilize a barra deslizante horizontal ou os botões de seta para avançar ou retroceder na linha do tempo, ajustando a visualização da animação na tela.',
             ),
             _buildInstructionItem(
-              title: '5. Ajustar a Largura da Coluna',
+              title: '5. Ajustar a Densidade Visual',
               description:
-                  'No menu lateral, você pode usar o slider "Largura da Coluna" para aumentar ou diminuir a quantidade de subdivisões visíveis por coluna, alterando assim o espaçamento e a densidade das bolinhas na coluna.',
+                  'No menu lateral (canto superior esquerdo), use a barra "Largura da Coluna" para aumentar ou diminuir o espaçamento visual das batidas.',
             ),
             _buildInstructionItem(
               title: '6. Salvar um Ritmo',
               description:
-                  'Para salvar um ritmo que você criou, abra o menu lateral e clique em "Salvar Ritmo Atual". O sistema irá armazenar o conjunto de frações e suas configurações atuais.',
+                  'Para salvar o conjunto de razões que você criou, abra o menu lateral e clique em "Salvar Ritmo".',
             ),
             _buildInstructionItem(
               title: '7. Carregar um Ritmo Salvo',
               description:
-                  'No menu lateral, selecione "Ver Ritmos Salvos". Você verá uma lista dos ritmos que já foram salvos. Clique em um deles para aplicar os valores e carregá-lo na tela principal.',
+                  'No menu lateral, selecione "Lista de Ritmos Salvas". Na nova tela, encontre o ritmo desejado e clique no botão "Aplicar" para carregá-lo na tela principal.',
             ),
             _buildInstructionItem(
               title: '8. Excluir um Ritmo Salvo',
               description:
-                  'Na tela de ritmos salvos, utilize o ícone de lixeira ao lado de um ritmo para excluí-lo permanentemente.',
+                  'Na tela de "Ritmos Salvos", utilize o ícone de lixeira em um ritmo para excluí-lo permanentemente da sua lista.',
             ),
             _buildInstructionItem(
               title: '9. Limpar Valores de uma Faixa',
               description:
-                  'Para remover os valores de uma fração (numerador e denominador), clique no ícone de lixeira ao lado dos campos de entrada da faixa correspondente.',
+                  'Para apagar os números de uma faixa (R1, R2 ou R3) na tela principal, clique no ícone de lixeira localizado à direita dos campos de entrada da razão correspondente.',
             ),
           ],
         ),
@@ -914,7 +920,8 @@ class UsageInstructionsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInstructionItem({required String title, required String description}) {
+  Widget _buildInstructionItem(
+      {required String title, required String description}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -943,7 +950,6 @@ class UsageInstructionsScreen extends StatelessWidget {
     );
   }
 }
-
 ----------------
 [user_interface\screens\orientation_screen.dart]
 
@@ -1086,8 +1092,6 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
   @override
   Widget build(BuildContext context) {
     final ritmoProvider = Provider.of<RitmoProvider>(context);
-
-    // MUDANÇA: Adicionamos a propriedade "isInteractive" aos passos práticos
     final List<TutorialStep> tutorialSteps = [
       TutorialStep(
         key: _keyCentral,
@@ -1098,7 +1102,7 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
       TutorialStep(
         key: _keyGrupoInputs,
         text:
-            'Passo 1 de 6: Controles de Ritmo. Para gerar um ritmo você deve criar uma razão. Na parte inferior da tela estão os campos para inserir os valores das razões: R1, R2 e R3. '
+            'Controles de Ritmo: Para gerar um ritmo você deve criar uma razão. Na parte inferior da tela estão os campos para inserir os valores das razões: R1, R2 e R3. '
             'Cada razão possui dois campos: o primeiro número é colocado em "A" (intervalo de tempo) e o segundo em "B" (número de batidas). '
             'Por exemplo: na razão "2 está para 3", você deve colocar o número 2 em "A" e o número 3 em "B". '
             'Clique em Próximo para continuar.',
@@ -1108,7 +1112,7 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
       TutorialStep(
         key: _keyVisualizador,
         text:
-            'Passo 2 de 6: Visualizador de Ritmo. Na área superior e maior da tela, a animação do seu ritmo será exibida. '
+            'Animação de Ritmo: Na área superior e maior da tela, a animação do seu ritmo será exibida. '
             'Cada batida sonora corresponderá a uma bolinha aparecendo nesta área. Clique em Próximo para continuar.',
         alignment: Alignment.bottomCenter,
         padding: const EdgeInsets.only(bottom: 120),
@@ -1116,15 +1120,15 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
       TutorialStep(
         key: _keyBotaoB1,
         text:
-            'Passo 3 de 6: Ativar uma Faixa. Abaixo dos campos de texto, cada faixa tem um botão de ativação. '
-            'Toque duas vezes no botão para ativá-lo. Apenas as faixas ativas serão reproduzidas. Clique em Próximo para continuar.',
+            'Ativar uma razão: Abaixo de cada razão tem um botão de ativação. '
+            'Apenas as razões ativas serão reproduzidas. Clique em Próximo para continuar.',
         alignment: Alignment.topCenter,
         padding: const EdgeInsets.only(top: 100),
       ),
       TutorialStep(
         key: _keyPlayGlobal,
         text:
-            'Passo 4 de 6: Botão Play e Stop. Localizado à esquerda da barra deslizante, este botão inicia e interrompe a reprodução de todas as faixas ativas. '
+            'Botão Play e Stop: Localizado à esquerda da barra deslizante, este botão inicia e interrompe a reprodução de todas as razões ativas. '
             'O leitor de tela anunciará se o botão está em "Play" ou "Stop". Clique em Próximo para continuar.',
         alignment: Alignment.topCenter,
         padding: const EdgeInsets.only(top: 50, right: 200),
@@ -1132,14 +1136,14 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
       TutorialStep(
         key: _keyPlayGlobal,
         text:
-            'Passo 4 de 6 (continuação): Para tocar duas ou três razões ao mesmo tempo, primeiro ative os botões das razões desejadas e depois clique duas vezes no botão Play. Assim, elas iniciarão juntas.',
+            'Para tocar duas ou três razões ao mesmo tempo, primeiro ative os botões das razões desejadas, depois toque no botão de Stop, assim elas irão parar de tocar. Então, toque novamente nesse mesmo botão para dar play. Assim, todas as faixas ativadas iniciarão juntas.',
         alignment: Alignment.topCenter,
         padding: const EdgeInsets.only(top: 50, right: 200),
       ),
       TutorialStep(
         key: _keySlider,
         text:
-            'Passo 5 de 6: Barra de Navegação. No centro da tela, entre os botões de Play e as setas, há uma barra deslizante. '
+            'Barra de Navegação: No centro da tela, entre os botões de Play e as setas, há uma barra deslizante. '
             'Use-a para navegar pela linha do tempo da animação. As setas ao lado movem a visualização em blocos. Clique em Próximo para continuar.',
         alignment: Alignment.topCenter,
         padding: const EdgeInsets.only(top: 100, left: 150),
@@ -1147,63 +1151,51 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
       TutorialStep(
         key: _keyMenu,
         text:
-            'Passo 6 de 6: Menu Principal. Localizado no canto superior esquerdo da tela, este botão abre o menu de navegação com opções para salvar, carregar ritmos e acessar as configurações. Clique em Próximo para continuar.',
+            'Menu Principal: Localizado no canto superior esquerdo da tela, este botão abre o menu de navegação com opções para salvar, carregar ritmos e acessar as configurações. Clique em Próximo para continuar.',
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
       ),
       TutorialStep(
         key: _keyCentral,
-        text: 'Tutorial concluído! Boa exploração! Clique no botão Finalizar.',
-        alignment: Alignment.center,
-      ),
-      TutorialStep(
-        key: _keyCentral,
         text:
-            'Tutorial informativo concluído! Agora vamos para a parte prática. Prepare-se para criar seu primeiro ritmo!',
+            'Agora vamos para a parte prática. Prepare-se para criar seu primeiro ritmo! Clique em Próximo para continuar.',
         alignment: Alignment.center,
       ),
       TutorialStep(
         key: _keyGrupoInputs,
         text:
-            'Vamos explorar a proporcionalidade! Primeiro, na Razão R1 (a primeira linha), insira "2" no campo "A" e "3" no campo "B".',
+            'Vamos explorar a proporcionalidade! Primeiro, na Razão R1 insira "2" no campo "A" e "3" no campo "B". Clique em Próximo para continuar.',
         alignment: Alignment.topCenter,
         padding: const EdgeInsets.only(top: 80),
-        isInteractive: true, // <-- MUDANÇA AQUI
+        isInteractive: true, 
       ),
       TutorialStep(
         key: _keyGrupoInputs,
         text:
-            'Agora, na Razão R2 (a segunda linha), insira "4" no campo "A" e "6" no campo "B".',
+            'Agora, na Razão R2 insira "4" no campo "A" e "6" no campo "B". Clique em Próximo para continuar.',
         alignment: Alignment.topCenter,
         padding: const EdgeInsets.only(top: 80),
-        isInteractive: true, // <-- MUDANÇA AQUI
+        isInteractive: true, 
       ),
       TutorialStep(
         key: _keyBotaoB1,
-        text: 'Ative a Razão R1 tocando no botão "R1".',
+        text: 'Ative as Razões tocando no botão "R1" e depois no botão "R2". Clique em Próximo para continuar.',
         alignment: Alignment.topCenter,
         padding: const EdgeInsets.only(top: 100),
-        isInteractive: true, // <-- MUDANÇA AQUI
-      ),
-      TutorialStep(
-        key: _keyBotaoB1, // Pode precisar de uma key para o botão R2
-        text: 'Ative também a Razão R2 tocando no botão "R2".',
-        alignment: Alignment.topCenter,
-        padding: const EdgeInsets.only(top: 100),
-        isInteractive: true, // <-- MUDANÇA AQUI
+        isInteractive: true, 
       ),
       TutorialStep(
         key: _keyPlayGlobal,
         text:
-            'Toque duas vezes no botão "Play" para ouvir as duas razões juntas, demonstrando a proporcionalidade. Perceba como a cadência rítmica é a mesma, ou seja, o mesmo padrão de batidas!',
+            'Toque duas vezes no botão "Play" para ouvir as duas razões juntas, demonstrando a proporcionalidade. Perceba como a cadência rítmica é a mesma, ou seja, o mesmo padrão de batidas! Clique em Próximo para continuar.',
         alignment: Alignment.topCenter,
         padding: const EdgeInsets.only(top: 50, right: 200),
-        isInteractive: true, // <-- MUDANÇA AQUI
+        isInteractive: true, 
       ),
       TutorialStep(
         key: _keyCentral,
         text:
-            'Tutorial prático finalizado! Você aprendeu a criar e comparar ritmos proporcionais. Continue explorando!',
+            'Tutorial prático finalizado! Você aprendeu a criar e comparar ritmos proporcionais. Continue explorando! Clique no botão Finalizar.',
         alignment: Alignment.center,
       ),
     ];
@@ -1249,8 +1241,7 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
       body: Stack(
         children: [
           Center(child: SizedBox(key: _keyCentral, width: 1, height: 1)),
-          
-          // MUDANÇA: O AbsorbPointer foi removido daqui!
+
           Padding(
             padding: const EdgeInsets.all(1.0),
             child: Row(
@@ -1381,8 +1372,6 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
                               if (fracao.id == 'r1') {
                                 botaoKey = _keyBotaoB1;
                               }
-                              // Você pode adicionar keys para os botões R2 e R3 se precisar destacá-los individualmente
-                              
                               return FocusTraversalGroup(
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
@@ -1418,8 +1407,14 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
           if (_showTutorial)
             InteractiveTutorialOverlay(
               steps: tutorialSteps,
-              onFinish: _markTutorialAsCompleted,
-              onSkip: _markTutorialAsCompleted,
+                 onFinish: () {
+                Provider.of<RitmoProvider>(context, listen: false).resetarRitmo();
+                _markTutorialAsCompleted();
+              },
+              onSkip: () {
+                Provider.of<RitmoProvider>(context, listen: false).resetarRitmo();
+                _markTutorialAsCompleted();
+              },
             ),
         ],
       ),
@@ -1500,10 +1495,9 @@ class TelaRitmosSalvos extends StatelessWidget {
                         Row(
                           children: [
                             Expanded(
-                              // ***** CORREÇÃO AQUI *****
-                              // Reintegrando o Semantics para acessibilidade
                               child: Semantics(
-                                label: 'Aplicar o ritmo ${conjunto.nome.replaceAll('|', 'e')}',
+                                label:
+                                    'Aplicar na tela principal ou excluir o ritmo salvo',
                                 button: true,
                                 child: ElevatedButton(
                                   onPressed: () {
@@ -1518,13 +1512,15 @@ class TelaRitmosSalvos extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             IconButton(
-                              tooltip: 'Excluir o ritmo ${conjunto.nome.replaceAll('|', 'e')}',
+                              tooltip:
+                                  'Excluir o ritmo',
                               icon: const Icon(
                                 Icons.delete,
                                 color: Colors.red,
-                                semanticLabel: 'Excluir o conjunto',
+                                semanticLabel: 'Excluir ',
                               ),
-                              onPressed: () => _showDeleteDialog(context, ritmoProvider, conjunto),
+                              onPressed: () => _showDeleteDialog(
+                                  context, ritmoProvider, conjunto),
                             ),
                           ],
                         ),
@@ -1540,8 +1536,9 @@ class TelaRitmosSalvos extends StatelessWidget {
     );
   }
 
-  void _showDeleteDialog(BuildContext context, RitmoProvider ritmoProvider, dynamic conjunto) {
-     showDialog(
+  void _showDeleteDialog(
+      BuildContext context, RitmoProvider ritmoProvider, dynamic conjunto) {
+    showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
@@ -1601,31 +1598,60 @@ class TelaRitmosSalvos extends StatelessWidget {
     );
   }
 
+  
   Widget _buildFracaoDisplay(FracaoModel fracao) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            '${fracao.id.toUpperCase()}:',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              color: fracao.cor,
-            ),
+   
+    String semanticLabel = 'Razão ${fracao.id.toUpperCase()}';
+    if (fracao.numerador != null && fracao.denominador != null) {
+      semanticLabel += ', ${fracao.numerador} está para ${fracao.denominador}';
+    } else {
+      semanticLabel += ', valor não definido';
+    }
+
+    return Semantics(
+      label: semanticLabel,
+      child: ExcludeSemantics( 
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Stack(
+                children: [
+                  Text(
+                    '${fracao.id.toUpperCase()}:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      foreground: Paint()
+                        ..style = PaintingStyle.stroke
+                        ..strokeWidth = 1.5 
+                        ..color = Colors.black, 
+                    ),
+                  ),
+                  Text(
+                    '${fracao.id.toUpperCase()}:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: fracao.cor,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: _buildNumberBox(fracao.numerador, fracao.cor)),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4.0),
+                child: Text(
+                  ':',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+              Expanded(child: _buildNumberBox(fracao.denominador, fracao.cor)),
+            ],
           ),
-          const SizedBox(width: 8),
-          Expanded(child: _buildNumberBox(fracao.numerador, fracao.cor)),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4.0),
-            child: Text(
-              ':',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          ),
-          Expanded(child: _buildNumberBox(fracao.denominador, fracao.cor)),
-        ],
+        ),
       ),
     );
   }
@@ -1637,7 +1663,8 @@ class TelaRitmosSalvos extends StatelessWidget {
       decoration: BoxDecoration(
         color: isEmptyValue ? Colors.grey.shade300 : color.withOpacity(0.8),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: isEmptyValue ? Colors.grey : color, width: 1.5),
+        border:
+            Border.all(color: isEmptyValue ? Colors.grey : color, width: 1.5),
       ),
       child: Center(
         child: FittedBox(
@@ -1645,194 +1672,12 @@ class TelaRitmosSalvos extends StatelessWidget {
           child: Text(
             value?.toString() ?? '',
             style: const TextStyle(
-              color: Colors.white,
+              color: Colors.black,
               fontWeight: FontWeight.bold,
               fontSize: 14,
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-----------------
-[user_interface\screens\tutorial_screen.dart]
-
-import 'package:flutter/material.dart';
-
-
-
-class TutorialScreen extends StatelessWidget {
-  const TutorialScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Tutorial: Entendendo o Ritmática"),
-        backgroundColor: Colors.blue,
-        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Container(
-        color: const Color.fromRGBO(220, 247, 255, 1.0),
-        child: ListView(
-          padding: const EdgeInsets.all(16.0),
-          children: [
-            _buildSectionCard(
-              context,
-              title: 'O que é o Ritmática?',
-              content: const Text(
-                'Bem-vindo ao Ritmática! Este não é apenas um aplicativo de música, mas uma ferramenta para explorar a matemática dos ritmos de uma forma visual e sonora.\n\n'
-                'Ele foi projetado para ser uma experiência multissensorial, ajudando a entender conceitos de razão e proporção de maneira intuitiva.',
-                style: TextStyle(fontSize: 16, height: 1.5),
-              ),
-            ),
-            _buildSectionCard(
-              context,
-              title: 'O Conceito Principal: Criando um Ritmo',
-              content: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Cada faixa (B1, B2, B3) possui dois campos para criar um ritmo. A relação entre esses dois números é a base de tudo:',
-                    style: TextStyle(fontSize: 16, height: 1.5),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildConceptBox(
-                    'Primeiro Campo (N): Intervalo de Tempo',
-                    'Representa "em quanto tempo" um ciclo rítmico acontece. Um número maior significa um ciclo mais longo e, portanto, um ritmo mais lento.',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildConceptBox(
-                    'Segundo Campo (D): Número de Batidas',
-                    'Representa "quantas batidas" (sons e bolinhas) acontecem dentro daquele intervalo de tempo.',
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Exemplo Prático:',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Se você inserir "2 : 3", significa que:',
-                    style: TextStyle(fontSize: 16, height: 1.5),
-                  ),
-                  _buildBulletPoint(
-                      'Em um intervalo de 2 unidades de tempo, você ouvirá 3 batidas.'),
-                  _buildBulletPoint(
-                      'Visualmente, você verá 3 bolinhas coloridas aparecendo de forma regular ao longo de um espaço que representa essas 2 unidades de tempo.'),
-                ],
-              ),
-            ),
-            _buildSectionCard(
-              context,
-              title: 'Explorando Polirritmos',
-              content: const Text(
-                'Quando você ativa mais de uma faixa ao mesmo tempo (por exemplo, B1 e B2), você cria um "polirritmo".\n\n'
-                'Isso permite comparar visual e sonoramente duas razões diferentes. Como a relação 2:3 soa e se parece em comparação com 4:5? Experimente e descubra as relações entre elas!',
-                style: TextStyle(fontSize: 16, height: 1.5),
-              ),
-            ),
-             _buildSectionCard(
-              context,
-              title: 'Descobrindo a Proporção (Ritmos Equivalentes)',
-              content: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                   const Text(
-                    'Uma das ideias mais importantes que você pode explorar é a proporção. Tente inserir os seguintes ritmos em duas faixas diferentes:',
-                    style: TextStyle(fontSize: 16, height: 1.5),
-                  ),
-                   const SizedBox(height: 10),
-                  _buildBulletPoint('Faixa B1: 2 : 3'),
-                  _buildBulletPoint('Faixa B2: 4 : 6'),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Você perceberá que o ritmo fundamental é o mesmo! A faixa 4:6 é apenas uma versão mais lenta da 2:3, mas a proporção entre o tempo e as batidas (2 para 3) foi mantida. Isso é proporção em ação!',
-                     style: TextStyle(fontSize: 16, height: 1.5),
-                  ),
-                ],
-              ),
-            ),
-             _buildSectionCard(
-              context,
-              title: 'Para Acessibilidade',
-              content: const Text(
-                'O Ritmática foi pensado para todos. Se você possui deficiência visual, os sons são sua principal ferramenta para perceber a relação entre as frações. Se possui deficiência auditiva, a animação das bolinhas e das linhas no visualizador cumpre o mesmo papel, mostrando visualmente a estrutura do ritmo.',
-                 style: TextStyle(fontSize: 16, height: 1.5),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionCard(BuildContext context,
-      {required String title, required Widget content}) {
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.only(bottom: 20),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.blueAccent,
-              ),
-            ),
-            const Divider(height: 20),
-            content,
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildConceptBox(String title, String description) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            description,
-            style: const TextStyle(fontSize: 15, color: Colors.black87),
-          ),
-        ],
-      ),
-    );
-  }
-
-   Widget _buildBulletPoint(String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("• ", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          Expanded(child: Text(text, style: const TextStyle(fontSize: 16, height: 1.5))),
-        ],
       ),
     );
   }
@@ -1863,35 +1708,43 @@ class BotaoFaixaIndividual extends StatelessWidget {
     bool estaSelecionada = fracao.estaSelecionada;
     const double larguraBotao = 100.0; 
     const double alturaBotao = 40.0;
-    final identidadeFracao = 'faixa ${fracao.id.toUpperCase()}';
+
+    
+    final identidadeRazao = 'Botão da razão ${fracao.id.toUpperCase()}';
 
     return Semantics(
+      
       label: estaSelecionada
-          ? '$identidadeFracao, selecionada'
-          : 'Selecionar $identidadeFracao',
-      hint: 'Toque para alternar a seleção de áudio desta faixa',
+          ? '$identidadeRazao, ativada'
+          : '$identidadeRazao, desativada',
+      
+    
+      hint: 'Toque para ativar ou desativar a reprodução desta razão',
+      
+    
       selected: estaSelecionada,
       button: true,
       excludeSemantics: true,
-    child: ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        minimumSize: const Size(larguraBotao, alturaBotao), 
-        backgroundColor: estaSelecionada ? fracao.cor.withOpacity(0.8) : Colors.blueGrey[700],
-        foregroundColor: Colors.white,
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: estaSelecionada
-              ? BorderSide(color: Colors.white.withOpacity(0.9), width: 2.5)
-              : BorderSide(color: Colors.blueGrey[600]!, width: 1.5),
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(larguraBotao, alturaBotao), 
+          backgroundColor: estaSelecionada ? fracao.cor.withOpacity(0.8) : Colors.blueGrey[700],
+          foregroundColor: Colors.white,
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: estaSelecionada
+                ? BorderSide(color: Colors.white.withOpacity(0.9), width: 2.5)
+                : BorderSide(color: Colors.blueGrey[600]!, width: 1.5),
+          ),
+          elevation: estaSelecionada ? 6 : 2,
         ),
-        elevation: estaSelecionada ? 6 : 2,
+        onPressed: () {
+          ritmoProvider.toggleSelecaoFaixa(fracao.id);
+        },
+        child: Text(fracao.id.toUpperCase()),
       ),
-      onPressed: () {
-        ritmoProvider.toggleSelecaoFaixa(fracao.id);
-      },
-      child: Text(fracao.id.toUpperCase()),
-    ),);
+    );
   }
 }
 ----------------
@@ -2073,7 +1926,7 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
 
   @override
   Widget build(BuildContext context) {
-    final identidadeFracao = 'fração ${widget.fracao.id.toUpperCase()}';
+    final identidadeRazao = 'razão ${widget.fracao.id.toUpperCase()}';
 
     Widget buildConditionalTextField(
       TextEditingController controller,
@@ -2085,8 +1938,8 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
         height: 32,
         child: Semantics(
           label:
-              '$labelPart para a $identidadeFracao. Valor atual: ${controller.text.isEmpty ? 'vazio' : controller.text}',
-          hint: 'Toque para abrir o teclado númerico e digitar o valor',
+              'Campo $hintText para a $identidadeRazao. Valor atual: ${controller.text.isEmpty ? 'vazio' : controller.text}',
+          hint: 'Toque para abrir o teclado numérico e digitar o valor',
 
           child: TextField(
             controller: controller,
@@ -2124,8 +1977,8 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
         const SizedBox(width: 8),
         buildConditionalTextField(_numCtrl, 'A', 'Numerador'),
       //   Semantics(
-      //   label: 'Está para', // O que será lido em voz alta
-      //   child: const Text( // O que será exibido na tela
+      //   label: 'Está para', 
+      //   child: const Text( 
       //     ':',
       //     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
       //   ),
@@ -2141,9 +1994,9 @@ child: const Text(':', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bol
             Icons.delete_outline,
             size: 20,
             color: widget.fracao.cor,
-            semanticLabel: 'Limpar fração',
+            semanticLabel: 'Limpar $identidadeRazao',
           ),
-          tooltip: 'Limpar fração',
+          tooltip: 'Limpar razão',
           onPressed: () {
             _numCtrl.clear();
             _denCtrl.clear();
@@ -2198,7 +2051,8 @@ class InteractiveTutorialOverlay extends StatefulWidget {
       _InteractiveTutorialOverlayState();
 }
 
-class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay> {
+class _InteractiveTutorialOverlayState
+    extends State<InteractiveTutorialOverlay> {
   int _currentStep = 0;
   Rect? _highlightRect;
 
@@ -2238,7 +2092,9 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
       setState(() {
         _currentStep++;
       });
-      WidgetsBinding.instance.addPostFrameCallback((_) => _calculateHighlight());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _calculateHighlight(),
+      );
     } else {
       widget.onFinish();
     }
@@ -2249,11 +2105,11 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
       setState(() {
         _currentStep--;
       });
-      WidgetsBinding.instance.addPostFrameCallback((_) => _calculateHighlight());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _calculateHighlight(),
+      );
     }
   }
-
-  // ***** MÉTODO BUILD COMPLETAMENTE REFEITO *****
   @override
   Widget build(BuildContext context) {
     if (_highlightRect == null) {
@@ -2261,37 +2117,33 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
     }
 
     final step = widget.steps[_currentStep];
-
-    // O widget raiz agora é um Stack. Ele não bloqueia cliques em áreas vazias.
     return Stack(
       children: [
-        // 1. A CAMADA ESCURA: Só é adicionada se o passo NÃO for interativo.
-        // Quando está presente, ela bloqueia os cliques. Quando não está, não há nada para bloquear.
         if (!step.isInteractive)
           Positioned.fill(
             child: CustomPaint(
-              painter: HolePainter(
-                hole: _highlightRect!.inflate(10.0),
-              ),
+              painter: HolePainter(hole: _highlightRect!.inflate(10.0)),
             ),
           ),
-
-        // 2. A CAIXA DE TEXTO DO TUTORIAL: Sempre presente e posicionada.
         Positioned.fill(
           child: Align(
             alignment: step.alignment,
             child: Padding(
               padding: step.padding,
               child: Container(
-                constraints:
-                    BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.8,
+                ),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.blueAccent,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: const [
                     BoxShadow(
-                        color: Colors.black54, blurRadius: 10, spreadRadius: 2)
+                      color: Colors.black54,
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
                   ],
                 ),
                 child: Semantics(
@@ -2306,8 +2158,6 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
             ),
           ),
         ),
-
-        // 3. OS BOTÕES DE NAVEGAÇÃO DO TUTORIAL: Sempre presentes e posicionados.
         Positioned(
           bottom: 20,
           left: 20,
@@ -2315,10 +2165,12 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              TextButton(
+              ElevatedButton(
                 onPressed: widget.onSkip,
-                child: const Text('Pular Tutorial',
-                    style: TextStyle(color: Colors.white, fontSize: 16)),
+                child: const Text(
+                  'Pular Tutorial',
+                  style: TextStyle(color: Colors.red, fontSize: 16),
+                ),
               ),
               Row(
                 children: [
@@ -2330,9 +2182,11 @@ class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay>
                   const SizedBox(width: 10),
                   ElevatedButton(
                     onPressed: _nextStep,
-                    child: Text(_currentStep == widget.steps.length - 1
-                        ? 'Finalizar'
-                        : 'Próximo'),
+                    child: Text(
+                      _currentStep == widget.steps.length - 1
+                          ? 'Finalizar'
+                          : 'Próximo',
+                    ),
                   ),
                 ],
               ),
@@ -2352,10 +2206,11 @@ class HolePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = Colors.black.withOpacity(0.7);
-    final screenPath = Path()
-      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
-    final holePath = Path()
-      ..addRRect(RRect.fromRectAndRadius(hole, const Radius.circular(15)));
+    final screenPath =
+        Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    final holePath =
+        Path()
+          ..addRRect(RRect.fromRectAndRadius(hole, const Radius.circular(15)));
     final path = Path.combine(PathOperation.difference, screenPath, holePath);
     canvas.drawPath(path, paint);
   }
@@ -2365,6 +2220,7 @@ class HolePainter extends CustomPainter {
     return oldDelegate.hole != hole;
   }
 }
+
 ----------------
 [user_interface\widgets\side_menu.dart]
 
@@ -2373,7 +2229,6 @@ import 'package:provider/provider.dart';
 import 'package:ritmatica_app/user_interface/screens/about.dart';
 import 'package:ritmatica_app/user_interface/screens/agradecimentos.dart';
 import 'package:ritmatica_app/user_interface/screens/instrucoes.dart';
-import 'package:ritmatica_app/user_interface/screens/tutorial_screen.dart';
 import '../../services/ritmo_provider.dart';
 import '../../user_interface/screens/tela_ritmos_salvos.dart'; // Para navegação
 
@@ -2507,23 +2362,6 @@ class SideMenu extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const TelaRitmosSalvos()),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.school_outlined, color: Colors.blue), 
-                title: Semantics(
-                  label: 'Abrir tutorial para entender os conceitos do aplicativo',
-                  button: true,
-                  child: const Text("Entendendo o Ritmática"),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const TutorialScreen(), 
-                    ),
                   );
                 },
               ),
