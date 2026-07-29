@@ -18,9 +18,9 @@ class UsageInstructionsScreen extends StatelessWidget {
         child: ListView(
           children: [
             _buildInstructionItem(
-              title: '1. Definir uma Razão Rítmica',
+              title: '1. Definir uma Relação Rítmica',
               description:
-                  'Na tela principal, você encontrará três faixas (R1, R2, R3). Cada uma possui dois campos: "A" (intervalo de tempo) e "B" (número de batidas). Por exemplo, para criar a razão "2 para 3", insira "2" no campo A e "3" no campo B.',
+                  'Na tela principal, você encontrará três faixas (R1, R2, R3). Cada uma possui dois campos: "B" (intervalo de tempo) e "D" (número de batidas). Por exemplo, para criar a relação "2 para 3", insira "2" no campo B e "3" no campo D.',
             ),
             _buildInstructionItem(
               title: '2. Ativar Faixas para Tocar',
@@ -60,7 +60,7 @@ class UsageInstructionsScreen extends StatelessWidget {
             _buildInstructionItem(
               title: '9. Limpar Valores de uma Faixa',
               description:
-                  'Para apagar os números de uma faixa (R1, R2 ou R3) na tela principal, clique no ícone de lixeira localizado à direita dos campos de entrada da razão correspondente.',
+                  'Para apagar os números de uma faixa (R1, R2 ou R3) na tela principal, clique no ícone de lixeira localizado à direita dos campos de entrada da relação correspondente.',
             ),
           ],
         ),

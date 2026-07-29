@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 import './services/ritmo_provider.dart';
 import './services/tutorial_service.dart';
-import './user_interface/screens/orientation_screen.dart';
+import './user_interface/screens/splash_screen.dart';
 import './user_interface/screens/tela_principal.dart';
 
 void main() async {
@@ -13,8 +13,7 @@ void main() async {
 
   if (!kIsWeb) {
     await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
+      DeviceOrientation.portraitUp,
     ]);
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
         overlays: [SystemUiOverlay.bottom]);
@@ -24,16 +23,16 @@ void main() async {
   final bool orientationHasBeenShown = await tutorialService.isOrientationShown();
 
   runApp(MeuApp(
-    showOrientationScreen: !kIsWeb && !orientationHasBeenShown,
+    orientationShown: kIsWeb || orientationHasBeenShown,
   ));
 }
 
 class MeuApp extends StatelessWidget {
-  final bool showOrientationScreen;
+  final bool orientationShown;
 
   const MeuApp({
     super.key,
-    required this.showOrientationScreen,
+    required this.orientationShown,
   });
 
   @override
@@ -47,9 +46,11 @@ class MeuApp extends StatelessWidget {
           brightness: Brightness.light,
           scaffoldBackgroundColor: const Color(0xFF54ADFF),
         ),
-        home: showOrientationScreen
-            ? const OrientationScreen()
-            : const TelaPrincipal(),
+        home: kIsWeb
+            ? const TelaPrincipal()
+            : SplashScreen(
+                orientationShown: orientationShown,
+              ),
         debugShowCheckedModeBanner: false,
       ),
     );

@@ -169,7 +169,7 @@ class TelaRitmosSalvos extends StatelessWidget {
   
   Widget _buildFracaoDisplay(FracaoModel fracao) {
    
-    String semanticLabel = 'Razão ${fracao.id.toUpperCase()}';
+    String semanticLabel = 'Relação ${fracao.id.toUpperCase()}';
     if (fracao.numerador != null && fracao.denominador != null) {
       semanticLabel += ', ${fracao.numerador} está para ${fracao.denominador}';
     } else {

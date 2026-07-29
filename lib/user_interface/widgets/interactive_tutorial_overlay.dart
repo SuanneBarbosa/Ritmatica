@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ritmatica_app/user_interface/widgets/vlibras_widget.dart';
 
 class TutorialStep {
   final GlobalKey key;
@@ -20,12 +21,14 @@ class InteractiveTutorialOverlay extends StatefulWidget {
   final List<TutorialStep> steps;
   final VoidCallback onFinish;
   final VoidCallback onSkip;
+  final ValueChanged<int>? onStepChanged; // <-- NOVO: Comunica a troca de passo
 
   const InteractiveTutorialOverlay({
     super.key,
     required this.steps,
     required this.onFinish,
     required this.onSkip,
+    this.onStepChanged, // <-- NOVO
   });
 
   @override
@@ -33,21 +36,34 @@ class InteractiveTutorialOverlay extends StatefulWidget {
       _InteractiveTutorialOverlayState();
 }
 
-class _InteractiveTutorialOverlayState
-    extends State<InteractiveTutorialOverlay> {
+class _InteractiveTutorialOverlayState extends State<InteractiveTutorialOverlay> {
   int _currentStep = 0;
   Rect? _highlightRect;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _calculateHighlight());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _calculateHighlight();
+      widget.onStepChanged?.call(_currentStep); // Informa o passo inicial
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _announceCurrentStep();
+      });
+    });
   }
 
   @override
   void didUpdateWidget(covariant InteractiveTutorialOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
     WidgetsBinding.instance.addPostFrameCallback((_) => _calculateHighlight());
+  }
+
+  void _announceCurrentStep() {
+    if (_currentStep < widget.steps.length) {
+      final text = widget.steps[_currentStep].text;
+      debugPrint("Ritmática Tutorial: Enviando para VLibras -> $text");
+      VLibrasWidget.buscarTraducao(text);
+    }
   }
 
   void _calculateHighlight() {
@@ -75,23 +91,17 @@ class _InteractiveTutorialOverlayState
         _currentStep++;
       });
       WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _calculateHighlight(),
+        (_) {
+          _calculateHighlight();
+          widget.onStepChanged?.call(_currentStep); // Atualiza a tela principal
+          _announceCurrentStep();
+        },
       );
     } else {
       widget.onFinish();
     }
   }
 
-  void _previousStep() {
-    if (_currentStep > 0) {
-      setState(() {
-        _currentStep--;
-      });
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _calculateHighlight(),
-      );
-    }
-  }
   @override
   Widget build(BuildContext context) {
     if (_highlightRect == null) {
@@ -99,83 +109,209 @@ class _InteractiveTutorialOverlayState
     }
 
     final step = widget.steps[_currentStep];
+    final bool isLastStep = _currentStep == widget.steps.length - 1;
+    final bool isFirstStep = _currentStep == 0;
+
     return Stack(
-      children: [
+      children:[
+        // 1. Camada de Fundo Escuro (APARECE APENAS NA PARTE INFORMATIVA)
         if (!step.isInteractive)
           Positioned.fill(
-            child: CustomPaint(
-              painter: HolePainter(hole: _highlightRect!.inflate(10.0)),
+            child: GestureDetector(
+              onTap: () {}, // Bloqueia toques no fundo
+              child: CustomPaint(
+                painter: HolePainter(hole: _highlightRect!.inflate(10.0)),
+              ),
             ),
           ),
-        Positioned.fill(
-          child: Align(
-            alignment: step.alignment,
-            child: Padding(
-              padding: step.padding,
+        
+        // 2. Destaque Amarelo (APARECE APENAS NA PARTE PRÁTICA PARA GUIAR O CLIQUE)
+        if (step.isInteractive)
+          Positioned.fromRect(
+            rect: _highlightRect!.inflate(8.0),
+            child: IgnorePointer(
               child: Container(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.8,
-                ),
-                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.blueAccent,
+                  border: Border.all(color: Colors.yellowAccent.shade700, width: 4),
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black54,
-                      blurRadius: 10,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    step.text,
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                    textAlign: TextAlign.center,
-                  ),
                 ),
               ),
+            ),
+          ),
+        
+        // 3. Caixa de Texto de Orientação
+        _buildGuidanceBox(step),
+
+        // 4. Botões de Navegação
+        if (!isLastStep) _buildNextButton(isFirstStep),
+        if (!isLastStep) _buildSkipButton(),
+        if (isLastStep) _buildFinishButton(),
+
+        // 5. VLibras 
+        const Positioned(
+          bottom: 0,
+          right: 0,
+          child: ExcludeSemantics(
+            child: VLibrasWidget(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGuidanceBox(TutorialStep step) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double fontSize = (screenWidth * 0.025).clamp(16.0, 24.0);
+    final maxBoxWidth = screenWidth * 0.70;
+
+    if (step.alignment == Alignment.center || _highlightRect == null) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          width: maxBoxWidth,
+          padding: const EdgeInsets.all(24),
+          margin: const EdgeInsets.only(left: 40),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            boxShadow:[
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 10,
+                  spreadRadius: 2)
+            ],
+          ),
+          child: Semantics(
+            liveRegion: true,
+            child: Text(
+              step.text,
+              style: TextStyle(
+                inherit: false,
+                fontSize: fontSize,
+                color: Colors.blueAccent,
+                fontWeight: FontWeight.bold,
+                decoration: TextDecoration.none,
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
         ),
-        Positioned(
-          bottom: 20,
-          left: 20,
-          right: 20,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              ElevatedButton(
-                onPressed: widget.onSkip,
-                child: const Text(
-                  'Pular Tutorial',
-                  style: TextStyle(color: Colors.red, fontSize: 16),
-                ),
-              ),
-              Row(
-                children: [
-                  if (_currentStep > 0)
-                    ElevatedButton(
-                      onPressed: _previousStep,
-                      child: const Text('Anterior'),
-                    ),
-                  const SizedBox(width: 10),
-                  ElevatedButton(
-                    onPressed: _nextStep,
-                    child: Text(
-                      _currentStep == widget.steps.length - 1
-                          ? 'Finalizar'
-                          : 'Próximo',
-                    ),
-                  ),
-                ],
+      );
+    }
+
+    final rect = _highlightRect!;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final bool isBelow = step.alignment == Alignment.topCenter;
+    
+    double top = isBelow ? rect.bottom + 20 : rect.top - 150;
+
+    if (top < 10) top = 10;
+    if (top > screenHeight - 150) top = screenHeight - 150;
+
+    return Positioned(
+      top: top,
+      left: 30,
+      width: maxBoxWidth - 30,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow:[
+            BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8)
+          ],
+        ),
+        child: Semantics(
+          liveRegion: true,
+          child: Text(
+            step.text,
+            style: TextStyle(
+              fontSize: fontSize,
+              color: Colors.blueAccent,
+              fontWeight: FontWeight.bold,
+              decoration: TextDecoration.none,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNextButton(bool isFirstStep) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double btnFontSize = (screenWidth * 0.022).clamp(16.0, 28.0);
+    final double padH = (screenWidth * 0.03).clamp(24.0, 50.0);
+    final double padV = (screenWidth * 0.015).clamp(12.0, 24.0);
+
+    return Positioned(
+      bottom: 20,
+      right: (screenWidth * 0.25) + 20, 
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
+          textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+            fontSize: btnFontSize, 
+            fontWeight: FontWeight.bold
+          ),
+        ),
+        onPressed: _nextStep,
+        child: Text(isFirstStep ? 'Começar' : 'Próximo'),
+      ),
+    );
+  }
+
+  Widget _buildFinishButton() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double btnFontSize = (screenWidth * 0.022).clamp(16.0, 28.0);
+    final double padH = (screenWidth * 0.03).clamp(24.0, 50.0);
+    final double padV = (screenWidth * 0.015).clamp(12.0, 24.0);
+
+    return Positioned(
+      bottom: 20,
+      right: (screenWidth * 0.25) + 20,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blueAccent,
+          foregroundColor: Colors.white,
+          padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
+           textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+            fontSize: btnFontSize, 
+            fontWeight: FontWeight.bold
+          ),
+        ),
+        onPressed: widget.onFinish,
+        child: const Text('Finalizar'),
+      ),
+    );
+  }
+
+  Widget _buildSkipButton() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final double fontSize = (screenWidth * 0.022).clamp(16.0, 28.0);
+
+    return Positioned(
+      bottom: 20,
+      left: 20,
+      child: TextButton(
+        onPressed: widget.onSkip,
+        child: Text(
+          'Pular Tutorial',
+          style: TextStyle(
+            inherit: true,
+            color: Colors.white,
+            fontSize: fontSize,
+            fontWeight: FontWeight.bold,
+            shadows: const[
+              Shadow(
+                offset: Offset(1.5, 1.5),
+                blurRadius: 3,
+                color: Colors.black,
               ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

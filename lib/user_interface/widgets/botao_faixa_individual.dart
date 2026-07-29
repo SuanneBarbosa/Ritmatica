@@ -19,7 +19,7 @@ class BotaoFaixaIndividual extends StatelessWidget {
     const double alturaBotao = 40.0;
 
     
-    final identidadeRazao = 'Botão da razão ${fracao.id.toUpperCase()}';
+    final identidadeRazao = 'Botão da relação ${fracao.id.toUpperCase()}';
 
     return Semantics(
       
@@ -28,7 +28,7 @@ class BotaoFaixaIndividual extends StatelessWidget {
           : '$identidadeRazao, desativada',
       
     
-      hint: 'Toque para ativar ou desativar a reprodução desta razão',
+      hint: 'Toque para ativar ou desativar a reprodução desta relação',
       
     
       selected: estaSelecionada,

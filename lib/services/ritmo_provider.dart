@@ -14,9 +14,9 @@ class RitmoProvider with ChangeNotifier {
   List<ConjuntoRitmoModel> _conjuntosSalvos = [];
   final Map<String, Timer> _timersPorFracao = {};
   final Map<String, List<AudioPlayer>> _playerPool = {
-    'r1': List.generate(4, (_) => AudioPlayer()),
-    'r2': List.generate(4, (_) => AudioPlayer()),
-    'r3': List.generate(4, (_) => AudioPlayer()),
+    'r1': List.generate(10, (_) => AudioPlayer()),
+    'r2': List.generate(10, (_) => AudioPlayer()),
+    'r3': List.generate(10, (_) => AudioPlayer()),
   };
   final Map<String, int> _nextPlayerIdx = {'r1': 0, 'r2': 0, 'r3': 0};
   final Map<String, int> _bolinhasMostradas = {};
@@ -33,32 +33,33 @@ class RitmoProvider with ChangeNotifier {
   bool get estaTocandoGlobalmente => _timersPorFracao.isNotEmpty;
 
 
-
-
-  Future<void> _preloadAssets() async {
-  for (var f in _fracoes) {
-    final pool = _playerPool[f.id]!;
-    await Future.wait(pool.map((p) => p.setAsset('assets/${f.assetSom}')));
+Future<void> _preloadAssets() async {
+    for (var f in _fracoes) {
+      final pool = _playerPool[f.id]!;
+      await Future.wait(pool.map((p) async {
+        await p.setAsset('assets/${f.assetSom}');
+        if (!kIsWeb) {
+          await p.setVolume(0.0);
+          await p.play();
+          await p.pause();
+          await p.seek(Duration.zero);
+          await p.setVolume(1.0);
+        }
+      }));
+    }
   }
-}
 
   RitmoProvider() {
-   
-    _fracoes = [
+    _fracoes =[
       FracaoModel(id: 'r1', cor: AppCores.corB1, assetSom: 'sounds/r1_som.mp3'),
       FracaoModel(id: 'r2', cor: AppCores.corB2, assetSom: 'sounds/r2_som.mp3'),
       FracaoModel(id: 'r3', cor: AppCores.corB3, assetSom: 'sounds/r3_som.mp3'),
     ];
-
-    for (var f in _fracoes) {
-      final pool = _playerPool[f.id]!;
-      for (var p in pool) {
-        p.setAsset('assets/${f.assetSom}');
-      }
-    }
     _preloadAssets().then((_) => notifyListeners());
     carregarConjuntosSalvos().then((_) => notifyListeners());
   }
+
+  
 
 void resetarRitmo() {
     _stopAllFracoes();
@@ -74,7 +75,7 @@ void resetarRitmo() {
   }
 
 
- Future<void> _tocarSom(String id) async {
+ void _tocarSom(String id) {
     final pool = _playerPool[id]!;
     final idx = _nextPlayerIdx[id]!;
     final player = pool[idx];
@@ -83,10 +84,13 @@ void resetarRitmo() {
     if (kIsWeb) {
       try {
         if (player.playing) {
-          await player.stop();
+          player.pause();
         }
-        await player.seek(Duration.zero);
-        player.play();
+        player.seek(Duration.zero).then((_) {
+          player.play().catchError((e) {
+            debugPrint("Alerta player web silencioso: $e");
+          });
+        });
       } catch (e) {
         debugPrint("Erro player web: $e");
       }
@@ -183,13 +187,18 @@ void resetarRitmo() {
 
 
   int _calcularIntervaloMs(FracaoModel f) {
-   if (f.numerador == null || f.denominador == null || f.denominador == 0) {
+    if (f.numerador == null || f.denominador == null || f.denominador == 0) {
       return 0;
     }
     final a = f.numerador!;
     final b = f.denominador!;
     final double segundos = a / b;
-    return (segundos * 1000).round();
+    int intervalo = (segundos * 1000).round();
+    if (intervalo > 0 && intervalo < 50) {
+      intervalo = 50; 
+    }
+
+    return intervalo;
   }
 
 

@@ -83,7 +83,7 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
 
   @override
   Widget build(BuildContext context) {
-    final identidadeRazao = 'razão ${widget.fracao.id.toUpperCase()}';
+    final identidadeRazao = 'relação ${widget.fracao.id.toUpperCase()}';
 
     Widget buildConditionalTextField(
       TextEditingController controller,
@@ -132,7 +132,7 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
           ),
         ),
         const SizedBox(width: 8),
-        buildConditionalTextField(_numCtrl, 'A', 'Numerador'),
+        buildConditionalTextField(_numCtrl, 'B', 'Numerador'),
       //   Semantics(
       //   label: 'Está para', 
       //   child: const Text( 
@@ -144,7 +144,7 @@ class _LinhaInputFracaoState extends State<LinhaInputFracao> {
 child: const Text(':', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,)),
 ),
 
-        buildConditionalTextField(_denCtrl, 'B', 'Denominador'),
+        buildConditionalTextField(_denCtrl, 'D', 'Denominador'),
 
         IconButton(
           icon: Icon(
@@ -153,7 +153,7 @@ child: const Text(':', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bol
             color: widget.fracao.cor,
             semanticLabel: 'Limpar $identidadeRazao',
           ),
-          tooltip: 'Limpar razão',
+          tooltip: 'Limpar relação',
           onPressed: () {
             _numCtrl.clear();
             _denCtrl.clear();
